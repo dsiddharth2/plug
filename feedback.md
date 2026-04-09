@@ -1,94 +1,105 @@
-# PlugVault CLI — Phase 2 Review
+# PlugVault CLI — Phase 3 Review
 
 **Reviewer:** plug-reviewer
 **Date:** 2026-04-09
-**Phase:** 2 — Core Utilities (cumulative: Phases 1-2)
+**Phase:** 3 — Core Commands (cumulative: Phases 1-3)
 **Verdict:** APPROVED
 
 ---
 
-## Test Infrastructure (Task 2.0) — PASS
+## Test Results
 
-- vitest configured in devDependencies (`^3.1.1`) ✓
-- `"test": "vitest run"` script in package.json ✓
-- `npm test` runs and exits 0 — **51 tests pass across 7 test files** ✓
-- Smoke test present (`tests/smoke.test.js`) ✓
+- **81 tests pass across 11 test files** — up from 51 in Phase 2 ✓
+- All Phase 2 tests still pass (no regressions) ✓
+- Phase 3 adds 30 new tests: init (3), install (11), remove (5), list (7), registry (4 new)
 
-## Constants & Paths (Task 2.1) — PASS
+## `plug init` (Task 3.1) — PASS
 
-- All constants centralized in `src/constants.js` — vault names, GitHub URLs, cache TTL, dir names ✓
-- `CACHE_TTL_MS = 3_600_000` (1 hour) ✓
-- `OFFICIAL_VAULT` object with name/owner/repo/branch/private ✓
-- `src/utils/paths.js` uses `path.join()` and `os.homedir()` everywhere — no hardcoded slashes ✓
-- Both local (cwd-based) and global (homedir-based) scope supported for skills, commands, and installed paths ✓
-- `ensureDir()` uses `fs.mkdir({ recursive: true })` ✓
-- 11 unit tests covering all path functions plus ensureDir (create + idempotent) ✓
+- Creates `.claude/skills/`, `.claude/commands/`, `.plugvault/installed.json` ✓
+- Skips gracefully if directories already exist (no overwrite of existing `installed.json`) ✓
+- Handles partial existence (e.g., skills exists but commands doesn't) ✓
+- Prints green confirmation for created, yellow for skipped — clean UX ✓
+- Error handler wraps action with `process.exit(1)` ✓
 
-## Config & Auth (Task 2.2) — PASS
+## `plug install` — Basic (Task 3.2a) — PASS
 
-- `getConfig()` auto-seeds official vault on first run (ENOENT → write defaults) ✓
-- Corrupt config.json backed up to `.bak` and regenerated ✓
-- `structuredClone(DEFAULT_CONFIG)` used to avoid mutation — good practice ✓
-- `saveConfig()` calls `ensureDir()` before writing ✓
-- `getVault()`, `getDefaultVault()`, `getResolveOrder()` all correctly delegate to `getConfig()` ✓
-- Auth resolution chain: `PLUGVAULT_TOKEN_{NAME}` → `PLUGVAULT_GITHUB_TOKEN` → `config.vaults[name].token` ✓
-- Vault name sanitized for env var lookup (uppercase, hyphens→underscores) ✓
-- `getAuthHeaders()` returns `{ Authorization: 'Bearer <token>' }` or `{}` ✓
-- 8 config tests + 6 auth tests — all pass ✓
-- Tests mock `paths.js` to use temp dirs (no real `~/.plugvault` touched) ✓
+- Parses package name correctly ✓
+- Uses `findAllPackages()` to search across resolve_order ✓
+- Fetches `meta.json` for type/entry/version, falls back to registry data on failure ✓
+- Routes correctly: `skill` → `.claude/skills/`, `command` → `.claude/commands/` ✓
+- Tracks install in `installed.json` via `trackInstall()` with type, vault, version, path ✓
+- Prints result with path and usage hint (`/name` for commands, description for skills) ✓
+- Error: "Package 'X' not found in any vault." when not found ✓
 
-## Registry & Fetcher (Task 2.3) — PASS
+## `plug install` — Advanced (Task 3.2b) — PASS
 
-- `fetchRegistry()` uses **native `fetch`** — no `node-fetch` import ✓
-- Cache implemented: `cacheRegistry()` writes to `~/.plugvault/cache/{name}.json`, `getCachedRegistry()` checks `stat.mtimeMs` against `CACHE_TTL_MS` ✓
-- Stale cache (>1hr) returns null, triggering re-fetch ✓
-- `findPackage()` iterates `getResolveOrder()` vaults, returns `{ pkg, vault }` or `null` ✓
-- `findPackage()` silently skips unavailable vaults (catch in loop) ✓
-- `downloadFile()` constructs correct GitHub raw URL: `raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}` ✓
-- Auth headers forwarded to both registry and file fetches ✓
-- Error classification: 401/403 → `AUTH_FAILED`, 404 → `NOT_FOUND`, ENOTFOUND/ECONNREFUSED → `NETWORK_ERROR` ✓
-- 10 registry tests + 6 fetcher tests — all mock `global.fetch`, no real HTTP calls ✓
+- Vault prefix parsing (`vault/name`) via `indexOf('/')` — calls `findPackage(name, vault)` directly ✓
+- Conflict handling: `findAllPackages()` returns multiple → `@inquirer/prompts select()` ✓
+- `-g` global flag: routes to global paths, passes `isGlobal=true` to tracker ✓
+- Overwrite prompt: checks `isInstalled()` → `confirm()` prompt, aborts on decline ✓
+- Auto-init: checks `skillsDir` existence, creates both dirs if missing ✓
+- EACCES/EPERM handling in action wrapper ✓
 
-## Tracker (Task 2.4) — PASS
+## `plug remove` (Task 3.3) — PASS
 
-- `getInstalled()` reads `.plugvault/installed.json`, returns `{ installed: {} }` on ENOENT ✓
-- Corrupt `installed.json` backed up to `.bak` and reset to empty ✓
-- `trackInstall()` merges metadata with `installedAt` timestamp ✓
-- `trackRemove()` deletes key from installed map, no-throw on non-existent ✓
-- `isInstalled()` uses `Object.prototype.hasOwnProperty.call()` — safe against prototype pollution ✓
-- Local vs global scope: separate files, tested independently ✓
-- `saveInstalled()` calls `ensureDir(path.dirname(...))` before writing ✓
-- 9 tests including corrupt-file recovery and scope isolation ✓
+- Reads `installed.json`, finds package by name ✓
+- Deletes `.md` file via `fs.unlink()` ✓
+- Updates tracker via `trackRemove()` ✓
+- "Not installed" → prints yellow warning, returns (no error, exit 0) ✓
+- ENOENT on file delete → still removes from tracker (file already gone) ✓
+- EACCES/EPERM → rethrows with descriptive message ✓
+- `-g` flag supported ✓
+- Scope isolation: local remove doesn't touch global `installed.json` (tested) ✓
+
+## `plug list` (Task 3.4) — PASS
+
+- Shows both local + global installed packages with scope column ✓
+- `--remote` flag: fetches all registries via `fetchRegistry()`, lists all packages ✓
+- `--vault` filter: narrows by vault name ✓
+- `--type` filter: narrows by skill/command ✓
+- Table formatting: dynamic column widths, header + separator + rows, cyan header ✓
+- Graceful warning when no vaults configured or no packages available ✓
+- Remote errors per-vault: warns and continues (doesn't abort on one failed vault) ✓
+
+## Registry Fix — PASS
+
+- `findPackage()` uses `packages[name]` object lookup (not array `.find()`) ✓
+- `findAllPackages()` added for multi-vault conflict detection ✓
+- Both functions iterate `getResolveOrder()`, skip unavailable vaults ✓
+- 4 new registry tests: `findAllPackages` returns all matching vaults, returns empty for not-found ✓
+- `findPackage` tests: specific vault filtering, non-existent vault returns null ✓
 
 ## Cross-cutting — PASS
 
-- **ESM throughout:** All files use `import`/`export`, no `require()` found ✓
-- **No hardcoded paths:** All paths constructed via `path.join()` ✓
-- **Error handling:** Network errors, auth failures, 404s, corrupt JSON all handled with descriptive error codes and messages ✓
-- **Loose coupling:** No circular dependencies — `paths` ← `config` ← `auth` ← `registry`/`fetcher`; `paths` ← `tracker`. Clean dependency tree ✓
-- **Test isolation:** All tests mock the filesystem via `paths.js` overrides; network calls mocked via `global.fetch`. No real HTTP or home-dir mutations ✓
+- **ESM throughout:** All new files use `import`/`export` ✓
+- **No circular dependencies:** Commands import from utils only; no command-to-command imports ✓
+- **Test isolation:** All tests mock `paths.js`, `registry.js`, `fetcher.js`, `tracker.js`, and `@inquirer/prompts` — no real I/O ✓
+- **Error messages:** User-friendly, no stack traces exposed ✓
+- **Full cycle:** init → install → list → remove all wired and tested ✓
 
-## Phase 1 Regression Check — PASS
+## Phase 1-2 Regression Check — PASS
 
-- `node plug/bin/plug.js --help` still shows all 7 subcommands ✓
-- `plugvault/registry.json` unchanged and valid ✓
-- Package.json bin entry, ESM config, engines all intact ✓
+- `smoke.test.js`, `paths.test.js`, `auth.test.js`, `config.test.js`, `fetcher.test.js`, `tracker.test.js` all still pass ✓
+- Package.json, bin entry, ESM config unchanged ✓
+- Registry structure intact ✓
 
 ## progress.json — PASS
 
-- Tasks 2.0–2.4 and 2.V all marked `"completed"` with accurate notes ✓
-- Phase 1 tasks remain correctly completed ✓
+- Tasks 3.1, 3.2a, 3.2b, 3.3, 3.4, 3.V all marked `"completed"` with accurate notes ✓
+- Phase 1-2 tasks remain correctly completed ✓
+- Phase 4+ tasks remain `"pending"` ✓
 
 ---
 
 ## Summary
 
-**All checks passed — 0 issues found.** Phase 2 delivers a clean, well-tested utility layer:
+**All checks passed — 0 issues found.** Phase 3 delivers four fully functional commands:
 
-- 6 utility modules with clear separation of concerns
-- 51 tests with 100% mock isolation (no real I/O in tests)
-- Correct Windows path handling via `path.join` throughout
-- Proper error classification with structured error codes
-- Cache TTL, auth resolution chain, and corrupt-file recovery all implemented per spec
+- **init**: Creates project scaffolding with idempotent skip behavior
+- **install**: Full resolve chain with vault prefix, conflict prompting, global flag, overwrite prompt, auto-init, and meta.json fallback
+- **remove**: Clean deletion with tracker update, ENOENT tolerance, and scope isolation
+- **list**: Local + global display with remote registry browsing and vault/type filters
 
-Phase 2 is approved. Ready to proceed with Phase 3 (Core Commands).
+Test coverage is thorough: 30 new tests covering happy paths, error cases, edge cases (ENOENT, conflicts, declined overwrites), and scope isolation. The object-based registry schema is correctly used throughout.
+
+Phase 3 is approved. Ready to proceed with Phase 4 (Vault Management).
