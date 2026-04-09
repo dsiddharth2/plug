@@ -6,13 +6,15 @@
       "type": "command",
       "version": "1.0.0",
       "path": "registry/code-review",
-      "description": "Deep code review with security & performance analysis"
+      "description": "Deep code review with security & performance analysis",
+      "tags": ["review", "quality", "security", "performance"]
     },
     "api-patterns": {
       "type": "skill",
       "version": "1.0.0",
       "path": "registry/api-patterns",
-      "description": "Enforces consistent API design patterns"
+      "description": "Enforces consistent API design patterns",
+      "tags": ["api", "rest", "design", "patterns"]
     }
   }
 }
