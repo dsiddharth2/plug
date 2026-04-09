@@ -6,6 +6,8 @@ import { findPackage, findAllPackages } from '../utils/registry.js';
 import { downloadFile } from '../utils/fetcher.js';
 import { trackInstall, isInstalled } from '../utils/tracker.js';
 import { getClaudeSkillsDir, getClaudeCommandsDir, ensureDir } from '../utils/paths.js';
+import { createSpinner } from '../utils/ui.js';
+import { ctx, verbose } from '../utils/context.js';
 
 export function registerInstall(program) {
   program
@@ -16,8 +18,8 @@ export function registerInstall(program) {
       try {
         await runInstall(name, options);
       } catch (err) {
-        if (err.code === 'EACCES' || err.code === 'EPERM') {
-          console.error(chalk.red(`Cannot write to destination. Check permissions.`));
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
         } else {
           console.error(chalk.red(err.message));
         }
@@ -49,96 +51,149 @@ export async function runInstall(name, options = {}) {
     skillsDirExists = false;
   }
   if (!skillsDirExists) {
+    verbose('Auto-initializing .claude/ directories');
     await ensureDir(skillsDir);
     await ensureDir(commandsDir);
   }
 
   // Resolve package — with conflict detection if no vault prefix
+  const resolveSpinner = createSpinner('Resolving package...');
   let result;
-  if (vaultName) {
-    result = await findPackage(pkgName, vaultName);
-    if (!result) {
-      throw new Error(`Package '${pkgName}' not found in vault '${vaultName}'.`);
-    }
-  } else {
-    const allMatches = await findAllPackages(pkgName);
-    if (allMatches.length === 0) {
-      throw new Error(`Package '${pkgName}' not found in any vault.`);
-    }
-    if (allMatches.length > 1) {
-      // Conflict — prompt user to pick a vault
-      const choice = await select({
-        message: `'${pkgName}' found in multiple vaults. Select one:`,
-        choices: allMatches.map((m) => ({
-          name: `${m.vault.name} — ${m.pkg.description || '(no description)'}`,
-          value: m,
-        })),
-      });
-      result = choice;
+  try {
+    if (vaultName) {
+      verbose(`Resolving ${pkgName} from vault ${vaultName}`);
+      result = await findPackage(pkgName, vaultName);
+      resolveSpinner.stop();
+      if (!result) {
+        throw new Error(`Package '${pkgName}' not found in vault '${vaultName}'.`);
+      }
     } else {
-      result = allMatches[0];
+      verbose(`Searching all vaults for ${pkgName}`);
+      const allMatches = await findAllPackages(pkgName);
+      resolveSpinner.stop();
+      if (allMatches.length === 0) {
+        throw new Error(`Package '${pkgName}' not found in any vault.`);
+      }
+      if (allMatches.length > 1) {
+        verbose(`Found in ${allMatches.length} vaults: ${allMatches.map(m => m.vault.name).join(', ')}`);
+        // Conflict — auto-pick first if --yes, else prompt
+        if (ctx.yes) {
+          result = allMatches[0];
+        } else {
+          const choice = await select({
+            message: `'${pkgName}' found in multiple vaults. Select one:`,
+            choices: allMatches.map((m) => ({
+              name: `${m.vault.name} — ${m.pkg.description || '(no description)'}`,
+              value: m,
+            })),
+          });
+          result = choice;
+        }
+      } else {
+        result = allMatches[0];
+      }
     }
+  } catch (err) {
+    resolveSpinner.stop();
+    throw err;
   }
 
   const { pkg, vault } = result;
+  verbose(`Resolved ${pkgName} from vault ${vault.name} (v${pkg.version || '?'})`);
 
   // Overwrite prompt if already installed
   const alreadyInstalled = await isInstalled(pkgName, isGlobal);
   if (alreadyInstalled) {
-    const overwrite = await confirm({
-      message: `'${pkgName}' is already installed. Overwrite?`,
-      default: false,
-    });
-    if (!overwrite) {
-      console.log(chalk.yellow('Aborted.'));
-      return;
+    if (ctx.yes) {
+      verbose(`--yes: auto-confirming overwrite of ${pkgName}`);
+    } else {
+      const overwrite = await confirm({
+        message: `'${pkgName}' is already installed. Overwrite?`,
+        default: false,
+      });
+      if (!overwrite) {
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ status: 'aborted', name: pkgName }) + '\n');
+        } else {
+          console.log(chalk.yellow('Aborted.'));
+        }
+        return;
+      }
     }
   }
 
-  // Fetch meta.json from the vault
+  // Download meta.json + entry file
+  const dlSpinner = createSpinner(`Downloading ${pkgName}...`);
   let meta;
+  let content;
   try {
-    const metaContent = await downloadFile(vault, `${pkg.path}/meta.json`);
-    meta = JSON.parse(metaContent);
-  } catch {
-    // Fall back to registry data if meta.json is unavailable
-    meta = {
-      type: pkg.type,
-      entry: `${pkgName}.md`,
-      version: pkg.version,
-    };
+    try {
+      verbose(`Fetching meta.json from ${vault.name}`);
+      const metaContent = await downloadFile(vault, `${pkg.path}/meta.json`);
+      meta = JSON.parse(metaContent);
+    } catch {
+      // Fall back to registry data if meta.json is unavailable
+      verbose('meta.json unavailable, falling back to registry data');
+      meta = {
+        type: pkg.type,
+        entry: `${pkgName}.md`,
+        version: pkg.version,
+      };
+    }
+
+    const entryFile = meta.entry || `${pkgName}.md`;
+    verbose(`Downloading entry file: ${entryFile}`);
+    content = await downloadFile(vault, `${pkg.path}/${entryFile}`);
+    dlSpinner.stop();
+  } catch (err) {
+    dlSpinner.stop();
+    throw err;
   }
 
-  // Download the entry file
-  const entryFile = meta.entry || `${pkgName}.md`;
-  const content = await downloadFile(vault, `${pkg.path}/${entryFile}`);
-
   // Route to correct directory by type
+  const entryFile = meta.entry || `${pkgName}.md`;
   const type = meta.type || pkg.type || 'command';
   const destDir = type === 'skill' ? getClaudeSkillsDir(isGlobal) : getClaudeCommandsDir(isGlobal);
   await ensureDir(destDir);
   const destPath = path.join(destDir, entryFile);
 
-  await fs.writeFile(destPath, content, 'utf8');
+  verbose(`Writing to ${destPath}`);
+  try {
+    await fs.writeFile(destPath, content, 'utf8');
+  } catch (err) {
+    if (err.code === 'EACCES' || err.code === 'EPERM') {
+      throw Object.assign(
+        new Error(`Cannot write to ${destPath}. Check permissions.`),
+        { code: err.code },
+      );
+    }
+    throw err;
+  }
 
   // Track in installed.json
+  const version = meta.version || pkg.version || '1.0.0';
   await trackInstall(
     pkgName,
-    {
-      type,
-      vault: vault.name,
-      version: meta.version || pkg.version || '1.0.0',
-      path: destPath,
-    },
+    { type, vault: vault.name, version, path: destPath },
     isGlobal,
   );
 
-  // Print result with usage hint
-  console.log(chalk.green(`✓ Installed ${pkgName} (${type}) from ${vault.name}`));
-  console.log(chalk.cyan(`  Path: ${destPath}`));
-  if (type === 'skill') {
-    console.log(chalk.cyan(`  Usage: The skill '${pkgName}' is available in your Claude project`));
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify({
+      status: 'installed',
+      name: pkgName,
+      type,
+      vault: vault.name,
+      version,
+      path: destPath,
+    }) + '\n');
   } else {
-    console.log(chalk.cyan(`  Usage: /${pkgName}`));
+    console.log(chalk.green(`✓ Installed ${pkgName} (${type}) from ${vault.name}`));
+    console.log(chalk.cyan(`  Path: ${destPath}`));
+    if (type === 'skill') {
+      console.log(chalk.cyan(`  Usage: The skill '${pkgName}' is available in your Claude project`));
+    } else {
+      console.log(chalk.cyan(`  Usage: /${pkgName}`));
+    }
   }
 }

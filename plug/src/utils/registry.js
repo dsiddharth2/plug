@@ -59,7 +59,18 @@ export async function fetchRegistry(vault) {
   const url = `${GITHUB_RAW_BASE}/${vault.owner}/${vault.repo}/${branch}/${REGISTRY_FILE}`;
   const headers = await getAuthHeaders(vault.name);
 
-  const response = await fetch(url, { headers });
+  let response;
+  try {
+    response = await fetch(url, { headers });
+  } catch (err) {
+    if (err.cause?.code === 'ENOTFOUND' || err.cause?.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+      throw Object.assign(
+        new Error('Connection failed. Check your internet connection.'),
+        { code: 'NETWORK_ERROR' }
+      );
+    }
+    throw err;
+  }
 
   if (response.status === 401 || response.status === 403) {
     throw Object.assign(

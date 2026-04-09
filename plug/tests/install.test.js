@@ -240,4 +240,5 @@ describe('plug install', () => {
     const stat = await fs.stat(localCommandsDir);
     expect(stat.isDirectory()).toBe(true);
   });
+
 });

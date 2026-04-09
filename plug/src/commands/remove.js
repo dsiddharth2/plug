@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import fs from 'fs/promises';
 import { getInstalled, trackRemove } from '../utils/tracker.js';
+import { ctx, verbose } from '../utils/context.js';
 
 export function registerRemove(program) {
   program
@@ -11,7 +12,11 @@ export function registerRemove(program) {
       try {
         await runRemove(name, options);
       } catch (err) {
-        console.error(chalk.red(err.message));
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });
@@ -19,14 +24,21 @@ export function registerRemove(program) {
 
 export async function runRemove(name, options = {}) {
   const isGlobal = options.global || false;
+  verbose(`Removing '${name}' (global=${isGlobal})`);
+
   const data = await getInstalled(isGlobal);
   const pkg = data.installed[name];
 
   if (!pkg) {
-    console.log(chalk.yellow(`'${name}' is not installed.`));
+    if (ctx.json) {
+      process.stdout.write(JSON.stringify({ status: 'not-installed', name }) + '\n');
+    } else {
+      console.log(chalk.yellow(`'${name}' is not installed.`));
+    }
     return;
   }
 
+  verbose(`Removing file at ${pkg.path}`);
   // Delete the .md file
   try {
     await fs.unlink(pkg.path);
@@ -41,8 +53,15 @@ export async function runRemove(name, options = {}) {
       throw err;
     }
     // ENOENT — file already gone, proceed to remove from tracker
+    verbose(`File already gone (ENOENT), removing from tracker`);
   }
 
   await trackRemove(name, isGlobal);
-  console.log(chalk.green(`✓ Removed ${name}`));
+  verbose(`'${name}' removed from tracker`);
+
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify({ status: 'removed', name }) + '\n');
+  } else {
+    console.log(chalk.green(`✓ Removed ${name}`));
+  }
 }

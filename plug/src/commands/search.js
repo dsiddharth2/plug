@@ -1,6 +1,8 @@
 import chalk from 'chalk';
 import { getResolveOrder } from '../utils/config.js';
 import { fetchRegistry } from '../utils/registry.js';
+import { createSpinner } from '../utils/ui.js';
+import { ctx, verbose } from '../utils/context.js';
 
 export function registerSearch(program) {
   program
@@ -11,9 +13,25 @@ export function registerSearch(program) {
     .action(async (keyword, options) => {
       try {
         const results = await runSearch(keyword, options);
-        printSearchResults(results, keyword);
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify(results.map(({ name, pkg, vault, score }) => ({
+            name,
+            type: pkg.type,
+            version: pkg.version,
+            description: pkg.description,
+            tags: pkg.tags,
+            vault: vault.name,
+            score,
+          }))) + '\n');
+        } else {
+          printSearchResults(results, keyword);
+        }
       } catch (err) {
-        console.error(chalk.red(err.message));
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });
@@ -61,9 +79,12 @@ export async function runSearch(keyword, options = {}) {
   }
 
   const results = [];
+  const spinner = createSpinner('Searching...');
 
   for (const vault of searchVaults) {
     let registry;
+    spinner.text = `Searching in ${vault.name}...`;
+    verbose(`Fetching registry for vault ${vault.name}`);
     try {
       registry = await fetchRegistry(vault);
     } catch {
@@ -83,12 +104,15 @@ export async function runSearch(keyword, options = {}) {
     }
   }
 
+  spinner.stop();
+
   // Sort by score descending, then by name alphabetically for ties
   results.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     return a.name.localeCompare(b.name);
   });
 
+  verbose(`Search complete: ${results.length} results for "${keyword}"`);
   return results;
 }
 

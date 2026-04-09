@@ -279,6 +279,7 @@ describe('runUpdate', () => {
     const fileContent = await fs.readFile(path.join(commandsDir, 'code-review.md'), 'utf8');
     expect(fileContent).toBe('# updated code review v1.1.0');
   });
+
 });
 
 // ---------------------------------------------------------------------------

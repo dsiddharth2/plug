@@ -7,6 +7,7 @@ import {
   getInstalledFilePath,
   ensureDir,
 } from '../utils/paths.js';
+import { ctx } from '../utils/context.js';
 
 async function pathExists(p) {
   try {
@@ -42,6 +43,11 @@ export async function runInit() {
     created.push(installedFile);
   }
 
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify({ created, skipped }) + '\n');
+    return;
+  }
+
   if (created.length > 0) {
     console.log(chalk.green('Initialized:'));
     for (const p of created) console.log(chalk.green(`  ${p}`));
@@ -60,7 +66,11 @@ export function registerInit(program) {
       try {
         await runInit();
       } catch (err) {
-        console.error(chalk.red(err.message));
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });

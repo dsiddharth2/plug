@@ -2,6 +2,8 @@ import chalk from 'chalk';
 import { getInstalled } from '../utils/tracker.js';
 import { getResolveOrder } from '../utils/config.js';
 import { fetchRegistry } from '../utils/registry.js';
+import { createSpinner } from '../utils/ui.js';
+import { ctx, verbose } from '../utils/context.js';
 
 export function registerList(program) {
   program
@@ -14,7 +16,11 @@ export function registerList(program) {
       try {
         await runList(options);
       } catch (err) {
-        console.error(chalk.red(err.message));
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });
@@ -48,6 +54,11 @@ async function listInstalled({ vaultFilter, typeFilter }) {
   if (vaultFilter) filtered = filtered.filter((e) => e.vault === vaultFilter);
   if (typeFilter) filtered = filtered.filter((e) => e.type === typeFilter);
 
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify(filtered) + '\n');
+    return;
+  }
+
   if (filtered.length === 0) {
     console.log(chalk.yellow('No packages installed.'));
     return;
@@ -69,22 +80,43 @@ async function listRemote({ vaultFilter, typeFilter }) {
   const searchVaults = vaultFilter ? vaults.filter((v) => v.name === vaultFilter) : vaults;
 
   if (searchVaults.length === 0) {
-    console.log(chalk.yellow('No vaults configured.'));
+    if (ctx.json) {
+      process.stdout.write(JSON.stringify([]) + '\n');
+    } else {
+      console.log(chalk.yellow('No vaults configured.'));
+    }
     return;
   }
 
+  const spinner = createSpinner('Fetching registries...');
   const rows = [];
+  const jsonRows = [];
+
   for (const vault of searchVaults) {
+    spinner.text = `Fetching ${vault.name}...`;
+    verbose(`Fetching registry for vault ${vault.name}`);
     try {
       const registry = await fetchRegistry(vault);
       const packages = registry.packages || {};
       for (const [name, pkg] of Object.entries(packages)) {
         if (typeFilter && pkg.type !== typeFilter) continue;
         rows.push([name, pkg.type || '', vault.name, pkg.version || '', pkg.description || '']);
+        jsonRows.push({ name, type: pkg.type, vault: vault.name, version: pkg.version, description: pkg.description });
       }
     } catch (err) {
-      console.warn(chalk.yellow(`  Warning: Could not fetch registry for vault '${vault.name}': ${err.message}`));
+      spinner.stop();
+      if (!ctx.json) {
+        console.warn(chalk.yellow(`  Warning: Could not fetch registry for vault '${vault.name}': ${err.message}`));
+      }
+      spinner.start();
     }
+  }
+
+  spinner.stop();
+
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify(jsonRows) + '\n');
+    return;
   }
 
   if (rows.length === 0) {

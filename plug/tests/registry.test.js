@@ -98,6 +98,20 @@ describe('registry utils', () => {
       global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 });
       await expect(fetchRegistry(sampleVault)).rejects.toMatchObject({ code: 'NOT_FOUND' });
     });
+
+    it('throws NETWORK_ERROR on ENOTFOUND', async () => {
+      global.fetch = vi.fn().mockRejectedValue(
+        Object.assign(new Error('fetch failed'), { cause: { code: 'ENOTFOUND' } })
+      );
+      await expect(fetchRegistry(sampleVault)).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
+    });
+
+    it('throws NETWORK_ERROR on ECONNREFUSED', async () => {
+      global.fetch = vi.fn().mockRejectedValue(
+        Object.assign(new Error('fetch failed'), { cause: { code: 'ECONNREFUSED' } })
+      );
+      await expect(fetchRegistry(sampleVault)).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
+    });
   });
 
   describe('findPackage', () => {

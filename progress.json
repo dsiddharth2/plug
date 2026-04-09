@@ -173,22 +173,22 @@
       "id": "6.1",
       "phase": "Polish & Error Handling",
       "title": "Add spinners and color output",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "ui.js createSpinner (TTY-aware no-op in tests). Spinners in install (resolve+download), list (remote fetch), search (vault fetch), update (check+download), vault (connectivity+sync). All output chalk-colored: green success, red errors, yellow warnings, cyan info."
     },
     {
       "id": "6.2",
       "phase": "Polish & Error Handling",
       "title": "Error handling and edge cases",
-      "status": "pending",
-      "notes": "Updated: concrete error classes with exact message patterns and recovery behavior"
+      "status": "completed",
+      "notes": "NETWORK_ERROR in fetcher.js (ENOTFOUND/ECONNREFUSED). AUTH_FAILED in fetcher+registry (401/403) with set-token hint. NOT_FOUND (404). Corrupt config.json and installed.json: backup+reset. EACCES/EPERM in install+update+remove. remove non-existent exits 0. vault add duplicate exits 1. All patterns match PLAN spec."
     },
     {
       "id": "6.3",
       "phase": "Polish & Error Handling",
       "title": "Add global flags (--verbose, --json, --yes)",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "context.js: ctx singleton + verbose(). index.js: --verbose/--json/--yes via preAction hook. All commands emit ctx.json JSON. install+update respect ctx.yes. verbose() logs to stderr. 19 new tests in context.test.js; total 172 tests passing."
     },
     {
       "id": "6.V",

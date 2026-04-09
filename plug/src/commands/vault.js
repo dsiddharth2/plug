@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import fs from 'fs/promises';
 import path from 'path';
 import { getConfig, saveConfig } from '../utils/config.js';
@@ -5,6 +6,8 @@ import { getCachedRegistry, cacheRegistry } from '../utils/registry.js';
 import { getAuthHeaders } from '../utils/auth.js';
 import { getCacheDir } from '../utils/paths.js';
 import { GITHUB_RAW_BASE, REGISTRY_FILE, DEFAULT_BRANCH } from '../constants.js';
+import { createSpinner } from '../utils/ui.js';
+import { ctx, verbose } from '../utils/context.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -89,21 +92,24 @@ export async function runVaultAdd(name, url, options = {}) {
   };
 
   // Test connectivity
-  process.stdout.write(`Testing connectivity to ${url}...\n`);
+  verbose(`Testing connectivity to ${url}`);
+  const spinner = createSpinner(`Testing connectivity to ${url}...`);
   const result = await checkConnectivity(newVault);
+  spinner.stop();
+  verbose(`Connectivity result: ok=${result.ok}${result.status ? ` status=${result.status}` : ''}${result.error ? ` error=${result.error}` : ''}`);
 
   if (!result.ok) {
     if (result.status === 401 || result.status === 403) {
-      process.stdout.write(
-        `Warning: Authentication failed for vault '${name}'. The vault was added but you may need a token: plug vault set-token ${name} <token>\n`,
+      if (!ctx.json) console.log(
+        chalk.yellow(`Warning: Authentication failed for vault '${name}'. The vault was added but you may need a token: plug vault set-token ${name} <token>`),
       );
     } else if (result.status === 404) {
-      process.stdout.write(
-        `Warning: registry.json not found at ${url}. The vault was added but may not have a valid registry.\n`,
+      if (!ctx.json) console.log(
+        chalk.yellow(`Warning: registry.json not found at ${url}. The vault was added but may not have a valid registry.`),
       );
     } else {
-      process.stdout.write(
-        `Warning: Could not connect to ${url} (${result.error || `HTTP ${result.status}`}). Vault added anyway.\n`,
+      if (!ctx.json) console.log(
+        chalk.yellow(`Warning: Could not connect to ${url} (${result.error || `HTTP ${result.status}`}). Vault added anyway.`),
       );
     }
   }
@@ -111,16 +117,19 @@ export async function runVaultAdd(name, url, options = {}) {
   config.vaults[name] = newVault;
   config.resolve_order.push(name);
   await saveConfig(config);
+  verbose(`Vault '${name}' saved to config`);
 
   const pkgCount =
     result.ok && result.data ? Object.keys(result.data.packages || {}).length : null;
 
-  if (pkgCount !== null) {
-    process.stdout.write(
-      `Vault '${name}' added. Found ${pkgCount} package${pkgCount !== 1 ? 's' : ''} in registry.\n`,
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify({ status: 'added', name, url, packages: pkgCount }) + '\n');
+  } else if (pkgCount !== null) {
+    console.log(
+      chalk.green(`Vault '${name}' added. Found ${pkgCount} package${pkgCount !== 1 ? 's' : ''} in registry.`),
     );
   } else {
-    process.stdout.write(`Vault '${name}' added successfully.\n`);
+    console.log(chalk.green(`Vault '${name}' added successfully.`));
   }
 
   return newVault;
@@ -146,8 +155,13 @@ export async function runVaultRemove(name, options = {}) {
 
   await saveConfig(config);
   await clearVaultCache(name);
+  verbose(`Vault '${name}' removed and cache cleared`);
 
-  process.stdout.write(`Vault '${name}' removed.\n`);
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify({ status: 'removed', name }) + '\n');
+  } else {
+    console.log(chalk.green(`Vault '${name}' removed.`));
+  }
 }
 
 export async function runVaultList() {
@@ -176,20 +190,25 @@ export async function runVaultList() {
     });
   }
 
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify(rows) + '\n');
+    return rows;
+  }
+
   if (rows.length === 0) {
-    process.stdout.write('No vaults configured.\n');
+    console.log(chalk.yellow('No vaults configured.'));
     return rows;
   }
 
   const header = `${'NAME'.padEnd(15)} ${'URL'.padEnd(45)} ${'VISIBILITY'.padEnd(12)} ${'DEFAULT'.padEnd(8)} PACKAGES`;
-  process.stdout.write(`\n${header}\n`);
-  process.stdout.write(`${'-'.repeat(header.length)}\n`);
+  console.log(chalk.cyan(`\n${header}`));
+  console.log(chalk.cyan(`${'-'.repeat(header.length)}`));
   for (const row of rows) {
-    process.stdout.write(
-      `${row.name.padEnd(15)} ${row.url.padEnd(45)} ${row.visibility.padEnd(12)} ${row.default.padEnd(8)} ${row.packages}\n`,
+    console.log(
+      `${row.name.padEnd(15)} ${row.url.padEnd(45)} ${row.visibility.padEnd(12)} ${row.default.padEnd(8)} ${row.packages}`,
     );
   }
-  process.stdout.write('\n');
+  console.log();
 
   return rows;
 }
@@ -206,7 +225,13 @@ export async function runVaultSetDefault(name) {
   config.resolve_order.unshift(name);
 
   await saveConfig(config);
-  process.stdout.write(`Default vault set to '${name}'.\n`);
+  verbose(`Default vault updated to '${name}', resolve_order: ${config.resolve_order.join(', ')}`);
+
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify({ status: 'default-set', name }) + '\n');
+  } else {
+    console.log(chalk.green(`Default vault set to '${name}'.`));
+  }
 }
 
 export async function runVaultSetToken(name, token) {
@@ -220,14 +245,19 @@ export async function runVaultSetToken(name, token) {
   await saveConfig(config);
 
   // Test connectivity with the new token
-  process.stdout.write(`Testing connectivity with new token...\n`);
+  verbose(`Testing connectivity for vault '${name}' with new token`);
+  const spinner = createSpinner('Testing connectivity with new token...');
   const result = await checkConnectivity(config.vaults[name]);
+  spinner.stop();
+  verbose(`Set-token connectivity: ok=${result.ok}`);
 
-  if (result.ok) {
-    process.stdout.write(`Token updated and connectivity verified for vault '${name}'.\n`);
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify({ status: 'token-set', name, connected: result.ok }) + '\n');
+  } else if (result.ok) {
+    console.log(chalk.green(`Token updated and connectivity verified for vault '${name}'.`));
   } else {
-    process.stdout.write(
-      `Token updated for vault '${name}', but connectivity test failed (${result.error || `HTTP ${result.status}`}).\n`,
+    console.log(
+      chalk.yellow(`Token updated for vault '${name}', but connectivity test failed (${result.error || `HTTP ${result.status}`}).`),
     );
   }
 }
@@ -240,9 +270,15 @@ export async function runVaultSync() {
   let totalPackages = 0;
   const errors = [];
 
+  verbose(`Syncing ${order.length} vault(s): ${order.join(', ')}`);
+  const spinner = createSpinner('Syncing vaults...');
+
   for (const name of order) {
     const v = config.vaults[name];
     if (!v) continue;
+
+    spinner.text = `Syncing '${name}'...`;
+    verbose(`Syncing vault '${name}' from ${v.owner}/${v.repo}`);
 
     try {
       // Clear cache to force a fresh fetch
@@ -251,6 +287,7 @@ export async function runVaultSync() {
       // Re-fetch using config-aware auth (vault is already saved to config)
       const branch = v.branch || DEFAULT_BRANCH;
       const url = `${GITHUB_RAW_BASE}/${v.owner}/${v.repo}/${branch}/${REGISTRY_FILE}`;
+      verbose(`Fetching ${url}`);
       const headers = await getAuthHeaders(name);
 
       const response = await fetch(url, { headers });
@@ -263,20 +300,26 @@ export async function runVaultSync() {
       const pkgCount = Object.keys(data.packages || {}).length;
       totalPackages += pkgCount;
       synced++;
-      process.stdout.write(
-        `  Synced '${name}': ${pkgCount} package${pkgCount !== 1 ? 's' : ''}\n`,
-      );
+      verbose(`Vault '${name}' synced: ${pkgCount} packages`);
+      if (!ctx.json) console.log(chalk.green(`  ✓ Synced '${name}': ${pkgCount} package${pkgCount !== 1 ? 's' : ''}`));
     } catch (err) {
       errors.push(name);
-      process.stdout.write(`  Warning: Failed to sync vault '${name}': ${err.message}\n`);
+      verbose(`Failed to sync vault '${name}': ${err.message}`);
+      if (!ctx.json) console.log(chalk.yellow(`  Warning: Failed to sync vault '${name}': ${err.message}`));
     }
   }
 
-  process.stdout.write(
-    `\nSynced ${synced} vault${synced !== 1 ? 's' : ''}, ${totalPackages} package${totalPackages !== 1 ? 's' : ''} available.\n`,
-  );
-  if (errors.length > 0) {
-    process.stdout.write(`Failed to sync: ${errors.join(', ')}\n`);
+  spinner.stop();
+
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify({ synced, totalPackages, errors }) + '\n');
+  } else {
+    console.log(
+      chalk.bold(`\nSynced ${synced} vault${synced !== 1 ? 's' : ''}, ${totalPackages} package${totalPackages !== 1 ? 's' : ''} available.`),
+    );
+    if (errors.length > 0) {
+      console.log(chalk.yellow(`Failed to sync: ${errors.join(', ')}`));
+    }
   }
 
   return { synced, totalPackages, errors };
@@ -300,7 +343,11 @@ export function registerVault(program) {
       try {
         await runVaultAdd(name, url, options);
       } catch (err) {
-        console.error(err.message);
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });
@@ -313,7 +360,11 @@ export function registerVault(program) {
       try {
         await runVaultRemove(name, options);
       } catch (err) {
-        console.error(err.message);
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });
@@ -325,7 +376,11 @@ export function registerVault(program) {
       try {
         await runVaultList();
       } catch (err) {
-        console.error(err.message);
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });
@@ -337,7 +392,11 @@ export function registerVault(program) {
       try {
         await runVaultSetDefault(name);
       } catch (err) {
-        console.error(err.message);
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });
@@ -349,7 +408,11 @@ export function registerVault(program) {
       try {
         await runVaultSetToken(name, token);
       } catch (err) {
-        console.error(err.message);
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });
@@ -361,7 +424,11 @@ export function registerVault(program) {
       try {
         await runVaultSync();
       } catch (err) {
-        console.error(err.message);
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } else {
+          console.error(chalk.red(err.message));
+        }
         process.exit(1);
       }
     });
