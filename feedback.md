@@ -1,105 +1,108 @@
-# PlugVault CLI — Phase 3 Review
+# PlugVault CLI — Phase 4 Review
 
 **Reviewer:** plug-reviewer
 **Date:** 2026-04-09
-**Phase:** 3 — Core Commands (cumulative: Phases 1-3)
+**Phase:** 4 — Vault Management (cumulative: Phases 1-4)
 **Verdict:** APPROVED
 
 ---
 
 ## Test Results
 
-- **81 tests pass across 11 test files** — up from 51 in Phase 2 ✓
-- All Phase 2 tests still pass (no regressions) ✓
-- Phase 3 adds 30 new tests: init (3), install (11), remove (5), list (7), registry (4 new)
+- **119 tests pass across 12 test files** — up from 81 in Phase 3 ✓
+- All Phase 1-3 tests still pass (no regressions) ✓
+- Phase 4 adds 38 new tests in `vault.test.js`: parseGithubUrl (4), checkConnectivity (4), vault add (8), vault remove (6), vault list (5), vault set-default (3), vault set-token (3), vault sync (4), lifecycle (1)
 
-## `plug init` (Task 3.1) — PASS
+## Diff Stats
 
-- Creates `.claude/skills/`, `.claude/commands/`, `.plugvault/installed.json` ✓
-- Skips gracefully if directories already exist (no overwrite of existing `installed.json`) ✓
-- Handles partial existence (e.g., skills exists but commands doesn't) ✓
-- Prints green confirmation for created, yellow for skipped — clean UX ✓
-- Error handler wraps action with `process.exit(1)` ✓
+```
+plug/src/commands/vault.js | 344 ++++++++++++++++++++++++++++++--
+plug/tests/vault.test.js   | 466 +++++++++++++++++++++++++++++++++++++++++++++
+progress.json              |   8 +-
+```
 
-## `plug install` — Basic (Task 3.2a) — PASS
+## `vault add` (Task 4.1) — PASS
 
-- Parses package name correctly ✓
-- Uses `findAllPackages()` to search across resolve_order ✓
-- Fetches `meta.json` for type/entry/version, falls back to registry data on failure ✓
-- Routes correctly: `skill` → `.claude/skills/`, `command` → `.claude/commands/` ✓
-- Tracks install in `installed.json` via `trackInstall()` with type, vault, version, path ✓
-- Prints result with path and usage hint (`/name` for commands, description for skills) ✓
-- Error: "Package 'X' not found in any vault." when not found ✓
+- Validates URL with `new URL()` — rejects malformed URLs ✓
+- Parses GitHub URL via `parseGithubUrl()` — rejects non-GitHub URLs with helpful message ✓
+- `--token` flag saves token to vault config ✓
+- `--private` flag marks vault as private ✓
+- Tests connectivity by fetching `registry.json` — reports package count on success ✓
+- Graceful degradation: 401/403/404/network failure prints warning but still adds vault ✓
+- Duplicate name throws with actionable message ("Remove it first with: plug vault remove …") ✓
+- Saves to `config.vaults` and appends to `resolve_order` ✓
 
-## `plug install` — Advanced (Task 3.2b) — PASS
+## `vault remove` (Task 4.1) — PASS
 
-- Vault prefix parsing (`vault/name`) via `indexOf('/')` — calls `findPackage(name, vault)` directly ✓
-- Conflict handling: `findAllPackages()` returns multiple → `@inquirer/prompts select()` ✓
-- `-g` global flag: routes to global paths, passes `isGlobal=true` to tracker ✓
-- Overwrite prompt: checks `isInstalled()` → `confirm()` prompt, aborts on decline ✓
-- Auto-init: checks `skillsDir` existence, creates both dirs if missing ✓
-- EACCES/EPERM handling in action wrapper ✓
+- Removes from `config.vaults` and `resolve_order` ✓
+- Clears cached registry via `fs.rm(cacheFile, { force: true })` ✓
+- Blocks removing "official" unless `--force` ✓
+- Resets `default_vault` when the removed vault was the default ✓
+- Throws for nonexistent vault ✓
 
-## `plug remove` (Task 3.3) — PASS
+## `vault list` (Task 4.2) — PASS
 
-- Reads `installed.json`, finds package by name ✓
-- Deletes `.md` file via `fs.unlink()` ✓
-- Updates tracker via `trackRemove()` ✓
-- "Not installed" → prints yellow warning, returns (no error, exit 0) ✓
-- ENOENT on file delete → still removes from tracker (file already gone) ✓
-- EACCES/EPERM → rethrows with descriptive message ✓
-- `-g` flag supported ✓
-- Scope isolation: local remove doesn't touch global `installed.json` (tested) ✓
+- Table shows name, URL, visibility (public/private), default marker, package count ✓
+- Package count sourced from cache (`getCachedRegistry`), shows `-` when no cache ✓
+- Padded columns for clean formatting ✓
+- "No vaults configured" message when empty ✓
 
-## `plug list` (Task 3.4) — PASS
+## `vault set-default` (Task 4.2) — PASS
 
-- Shows both local + global installed packages with scope column ✓
-- `--remote` flag: fetches all registries via `fetchRegistry()`, lists all packages ✓
-- `--vault` filter: narrows by vault name ✓
-- `--type` filter: narrows by skill/command ✓
-- Table formatting: dynamic column widths, header + separator + rows, cyan header ✓
-- Graceful warning when no vaults configured or no packages available ✓
-- Remote errors per-vault: warns and continues (doesn't abort on one failed vault) ✓
+- Updates `default_vault` in config ✓
+- Moves vault to top of `resolve_order` via `filter` + `unshift` ✓
+- Throws for unknown vault ✓
 
-## Registry Fix — PASS
+## `vault set-token` (Task 4.2) — PASS
 
-- `findPackage()` uses `packages[name]` object lookup (not array `.find()`) ✓
-- `findAllPackages()` added for multi-vault conflict detection ✓
-- Both functions iterate `getResolveOrder()`, skip unavailable vaults ✓
-- 4 new registry tests: `findAllPackages` returns all matching vaults, returns empty for not-found ✓
-- `findPackage` tests: specific vault filtering, non-existent vault returns null ✓
+- Updates token in config ✓
+- Tests connectivity with new token after saving ✓
+- Reports success/failure of connectivity test ✓
+- Token not logged or printed in output (only used in auth headers) ✓
+- Throws for unknown vault ✓
+
+## `vault sync` (Task 4.3) — PASS
+
+- Clears cache before re-fetching (forces fresh data) ✓
+- Uses `getAuthHeaders()` for config-aware auth (env var → config fallback) ✓
+- Caches fetched registries via `cacheRegistry()` ✓
+- Per-vault error handling: warns and continues on failure ✓
+- Prints summary: synced count, total packages, failed vaults ✓
+- Multi-vault sync tested (2 vaults × 2 packages = 4 total) ✓
 
 ## Cross-cutting — PASS
 
-- **ESM throughout:** All new files use `import`/`export` ✓
-- **No circular dependencies:** Commands import from utils only; no command-to-command imports ✓
-- **Test isolation:** All tests mock `paths.js`, `registry.js`, `fetcher.js`, `tracker.js`, and `@inquirer/prompts` — no real I/O ✓
-- **Error messages:** User-friendly, no stack traces exposed ✓
-- **Full cycle:** init → install → list → remove all wired and tested ✓
+- **ESM throughout:** All exports/imports consistent ✓
+- **Test isolation:** Mocks `paths.js`, `global.fetch`, `process.stdout.write` — no real network or disk I/O ✓
+- **Error messages:** User-friendly, actionable, no stack traces ✓
+- **Token security:** Tokens stored in config but never logged/printed in user-facing output ✓
+- **Helper design:** `parseGithubUrl` and `checkConnectivity` are exported and independently testable ✓
+- **Commander registration:** All 6 subcommands wired with try/catch → `process.exit(1)` pattern ✓
 
-## Phase 1-2 Regression Check — PASS
+## Phase 1-3 Regression Check — PASS
 
-- `smoke.test.js`, `paths.test.js`, `auth.test.js`, `config.test.js`, `fetcher.test.js`, `tracker.test.js` all still pass ✓
-- Package.json, bin entry, ESM config unchanged ✓
-- Registry structure intact ✓
+- All 81 prior tests pass unchanged ✓
+- smoke, paths, auth, config, fetcher, tracker, registry, init, install, remove, list — all green ✓
+- No changes to previously reviewed files ✓
 
-## progress.json — PASS
+## Lifecycle Test — PASS
 
-- Tasks 3.1, 3.2a, 3.2b, 3.3, 3.4, 3.V all marked `"completed"` with accurate notes ✓
-- Phase 1-2 tasks remain correctly completed ✓
-- Phase 4+ tasks remain `"pending"` ✓
+- Full cycle tested: add → list → set-default → set-token → sync → remove ✓
+- Config state verified at each step ✓
 
 ---
 
 ## Summary
 
-**All checks passed — 0 issues found.** Phase 3 delivers four fully functional commands:
+**All checks passed — 0 issues found.** Phase 4 delivers six vault management subcommands:
 
-- **init**: Creates project scaffolding with idempotent skip behavior
-- **install**: Full resolve chain with vault prefix, conflict prompting, global flag, overwrite prompt, auto-init, and meta.json fallback
-- **remove**: Clean deletion with tracker update, ENOENT tolerance, and scope isolation
-- **list**: Local + global display with remote registry browsing and vault/type filters
+- **add**: URL validation, GitHub parsing, connectivity check, graceful degradation on failure
+- **remove**: Config cleanup, cache clearing, official vault protection
+- **list**: Formatted table with cache-sourced package counts
+- **set-default**: Resolve order reordering
+- **set-token**: Token update with connectivity verification
+- **sync**: Fresh re-fetch of all vault registries with per-vault error handling
 
-Test coverage is thorough: 30 new tests covering happy paths, error cases, edge cases (ENOENT, conflicts, declined overwrites), and scope isolation. The object-based registry schema is correctly used throughout.
+Test coverage is thorough: 38 new tests covering happy paths, error cases (invalid URL, non-GitHub URL, duplicate name, network failure, auth failure), edge cases (removing default vault, force-removing official), and a full lifecycle integration test.
 
-Phase 3 is approved. Ready to proceed with Phase 4 (Vault Management).
+Phase 4 is approved. Ready to proceed with Phase 5 (Search & Update).
