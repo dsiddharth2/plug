@@ -17,7 +17,7 @@
 - **Change:** Create plug/ directory with package.json (ESM, bin entry, name "plugvault"), bin/plug.js with shebang, src/ folder structure, .gitignore, LICENSE (MIT)
 - **Files:** plug/package.json, plug/bin/plug.js, plug/src/index.js, plug/.gitignore, plug/LICENSE
 - **Tier:** standard
-- **Done when:** `node plug/bin/plug.js --help` shows commander help output
+- **Done when:** `node plug/bin/plug.js --help` shows commander help output; `npm view plugvault` returns a 404 (name available on npm); chalk and ora import successfully under ESM
 - **Blockers:** none
 
 #### Task 1.2: Set up Commander framework
@@ -42,6 +42,13 @@
 ---
 
 ### Phase 2: Core Utilities
+
+#### Task 2.0: Test infrastructure setup
+- **Change:** Set up test framework (vitest). Create tests/ directory structure. Add `"test": "vitest run"` script to plug/package.json. Add a trivial passing test (e.g., tests/smoke.test.js that asserts `1 + 1 === 2`) to confirm the framework wires up correctly
+- **Files:** plug/package.json, plug/tests/smoke.test.js, plug/vite.config.js (or vitest.config.js if needed)
+- **Tier:** cheap
+- **Done when:** `npm test` runs and exits 0 with at least one passing test
+- **Blockers:** Task 1.1
 
 #### Task 2.1: Constants and path utilities
 - **Change:** Create src/constants.js with all default paths, config file names, cache TTL (1 hour), GitHub raw URL templates. Create src/utils/paths.js with functions: getGlobalDir(), getClaudeSkillsDir(global?), getClaudeCommandsDir(global?), getInstalledFilePath(global?), ensureDir(path). All paths must use path.join and os.homedir() for Windows compatibility
@@ -87,12 +94,19 @@
 - **Done when:** Running `plug init` in a temp dir creates all three paths, running again skips gracefully
 - **Blockers:** Task 2.1
 
-#### Task 3.2: Implement `plug install -i <name>`
-- **Change:** Full install flow: parse name for vault/ prefix, resolve vault via resolve_order, fetch registry, find package, download .md file, route by type (skill -> .claude/skills/, command -> .claude/commands/), support -g flag for global, handle conflicts with @inquirer/prompts, auto-init if .claude/ missing, check if already installed (prompt overwrite), track in installed.json, print result with path and usage hint
+#### Task 3.2a: Basic install flow
+- **Change:** Implement the core install path: parse name for vault/ prefix, search resolve_order for the package, fetch registry, find package, fetch meta.json, download .md file, route by type (skill → .claude/skills/, command → .claude/commands/), track in installed.json, print result with path and usage hint
 - **Files:** plug/src/commands/install.js
-- **Tier:** premium
-- **Done when:** `plug install -i code-review` fetches from registry and places code-review.md in .claude/commands/, tracked in installed.json
+- **Tier:** standard
+- **Done when:** `plug install code-review` fetches from registry and places code-review.md in .claude/commands/, tracked in installed.json
 - **Blockers:** Tasks 2.2, 2.3, 2.4, 3.1
+
+#### Task 3.2b: Advanced install — conflicts, global, overwrite, auto-init
+- **Change:** Layer advanced install behavior on top of Task 3.2a: vault prefix parsing (`vault/name`), conflict prompting when same name found in multiple vaults (use @inquirer/prompts to pick), `-g` global flag (install to ~/.claude/), overwrite prompt when package already installed, auto-init if .claude/ doesn't exist
+- **Files:** plug/src/commands/install.js
+- **Tier:** standard
+- **Done when:** `plug install api-patterns` when present in two vaults prompts selection; `plug install -g code-review` places file in ~/.claude/commands/; installing twice prompts overwrite
+- **Blockers:** Task 3.2a
 
 #### Task 3.3: Implement `plug remove <name>`
 - **Change:** Check installed.json, delete the .md file from .claude/skills/ or .claude/commands/, remove from installed.json, support -g flag, print confirmation
@@ -109,7 +123,7 @@
 - **Blockers:** Tasks 2.3, 2.4
 
 #### VERIFY: Core Commands
-- Full cycle works: `plug init` -> `plug install -i code-review` -> `plug list` -> `plug remove code-review`
+- Full cycle works: `plug init` -> `plug install code-review` -> `plug list` -> `plug remove code-review`
 - Files placed in correct directories based on type
 - installed.json correctly tracks all operations
 - Global flag (-g) installs to ~/.claude/ paths
@@ -181,10 +195,17 @@
 - **Blockers:** Tasks 3.2, 4.3, 5.2
 
 #### Task 6.2: Error handling and edge cases
-- **Change:** Handle: no internet, 404 repo, package not found, auth failure, file permission errors, corrupt config.json (auto-repair with defaults), corrupt installed.json (auto-repair with empty). Edge cases: install when .claude/ missing (auto-init), duplicate install (prompt overwrite), remove non-existent package, vault add with duplicate name
+- **Change:** Implement concrete error handling for each class below. Each error must produce exactly the specified message (or matching pattern) and exit cleanly (no stack trace):
+  - **Network error (no internet):** catch fetch ENOTFOUND/ECONNREFUSED → print `"Connection failed. Check your internet connection."` → exit 1
+  - **404 (repo/skill not found):** fetch returns 404 → print `"Package '<name>' not found in any vault."` → exit 1
+  - **Auth failed (401/403 on private vault):** fetch returns 401/403 → print `"Authentication failed for vault '<name>'. Run: plug vault set-token <name> <token>"` → exit 1
+  - **Corrupt config.json:** JSON.parse throws → backup file to config.json.bak, regenerate defaults, print `"Warning: config.json was corrupt. Backed up and reset to defaults."` → continue
+  - **Corrupt installed.json:** JSON.parse throws → backup file to installed.json.bak, regenerate empty `{"installed":{}}`, print `"Warning: installed.json was corrupt. Backed up and reset."` → continue
+  - **File permission error:** fs write throws EACCES/EPERM → print `"Cannot write to <path>. Check permissions."` → exit 1
+  - Edge cases: remove non-existent package (print not-installed message, exit 0), vault add with duplicate name (print already-exists error, exit 1)
 - **Files:** plug/src/utils/config.js, plug/src/utils/tracker.js, plug/src/utils/fetcher.js, plug/src/utils/registry.js, plug/src/commands/*.js
 - **Tier:** premium
-- **Done when:** CLI handles all error cases gracefully with helpful messages, never crashes with unhandled exceptions
+- **Done when:** Each error class above produces its specified message with no stack trace; corrupt files are auto-repaired and backed up
 - **Blockers:** Task 6.1
 
 #### Task 6.3: Add global flags (--verbose, --json, --yes)
@@ -258,8 +279,25 @@
 | GitHub raw URL rate limiting | Install failures for popular packages | Cache registry.json locally with 1-hour TTL, batch downloads |
 | Private repo auth complexity | Users can't access company vaults | Env var -> config -> git credential fallback chain, clear error messages |
 | ESM-only breaks on older Node | CLI won't start | Enforce `engines.node >= 18` in package.json, check at startup |
-| chalk/ora ESM imports fail | No colored output | Pin to chalk 5.x and ora 7.x, test import chain |
+| chalk/ora ESM imports fail | No colored output | Pin to chalk 5.x and ora 8.x, test import chain |
 | Windows path issues | Files written to wrong location | Use path.join everywhere, never hardcode `/`, test on Windows |
-| npm name "plugvault" taken | Can't publish | Check availability early (Phase 1), have backup name |
+| npm name "plugvault" taken | Can't publish | Check availability in Task 1.1 (`npm view plugvault` → 404), have backup name |
 | Registry.json conflicts on concurrent vault reads | Race conditions | Sequential vault resolution, lock file for writes |
 | Large .md files slow to download | Poor UX on slow connections | Ora spinners, size limit warning in meta.json |
+
+---
+
+## Commit Strategy
+
+One commit per phase is the default. Large phases may use 2–3 commits if the diff would otherwise exceed ~500 lines.
+
+| Phase | Suggested commit message |
+|-------|--------------------------|
+| Phase 1: Scaffolding | `feat: scaffold CLI and registry repo structure` |
+| Phase 2: Core Utilities | `feat: add core utilities (paths, config, auth, registry, fetcher, tracker)` |
+| Phase 3: Core Commands | `feat: implement init, install, remove, list commands` |
+| Phase 4: Vault Management | `feat: implement vault add, remove, list, set-default, set-token, sync` |
+| Phase 5: Search & Update | `feat: implement search and update commands` |
+| Phase 6: Polish & Error Handling | `feat: add spinners, color output, error handling, and global flags` |
+| Phase 7: Documentation | `docs: add README, contributing guide, and skill authoring guide` |
+| Phase 8: Publish | `chore: pre-publish checks and npm release` |
