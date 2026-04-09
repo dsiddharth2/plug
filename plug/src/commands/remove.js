@@ -1,9 +1,48 @@
+import chalk from 'chalk';
+import fs from 'fs/promises';
+import { getInstalled, trackRemove } from '../utils/tracker.js';
+
 export function registerRemove(program) {
   program
     .command('remove <name>')
     .description('Remove an installed skill or command')
     .option('-g, --global', 'remove from global ~/.claude/ install')
-    .action((name, options) => {
-      console.log('remove: not yet implemented', name, options);
+    .action(async (name, options) => {
+      try {
+        await runRemove(name, options);
+      } catch (err) {
+        console.error(chalk.red(err.message));
+        process.exit(1);
+      }
     });
+}
+
+export async function runRemove(name, options = {}) {
+  const isGlobal = options.global || false;
+  const data = await getInstalled(isGlobal);
+  const pkg = data.installed[name];
+
+  if (!pkg) {
+    console.log(chalk.yellow(`'${name}' is not installed.`));
+    return;
+  }
+
+  // Delete the .md file
+  try {
+    await fs.unlink(pkg.path);
+  } catch (err) {
+    if (err.code === 'EACCES' || err.code === 'EPERM') {
+      throw Object.assign(
+        new Error(`Cannot remove '${pkg.path}'. Check permissions.`),
+        { code: err.code },
+      );
+    }
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+    // ENOENT — file already gone, proceed to remove from tracker
+  }
+
+  await trackRemove(name, isGlobal);
+  console.log(chalk.green(`✓ Removed ${name}`));
 }

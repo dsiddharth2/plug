@@ -97,12 +97,35 @@ export async function findPackage(name, vaultName = null) {
   for (const vault of searchVaults) {
     try {
       const registry = await fetchRegistry(vault);
-      const packages = registry.packages || [];
-      const pkg = packages.find((p) => p.name === name);
-      if (pkg) return { pkg, vault };
+      const packages = registry.packages || {};
+      const pkgData = packages[name];
+      if (pkgData) return { pkg: { name, ...pkgData }, vault };
     } catch {
       // Skip unavailable vaults
     }
   }
   return null;
+}
+
+/**
+ * Returns all vaults that contain a package with the given name.
+ * Used for conflict detection when the same name exists in multiple vaults.
+ * @param {string} name - Package name
+ * @returns {Array<{ pkg, vault }>}
+ */
+export async function findAllPackages(name) {
+  const vaults = await getResolveOrder();
+  const results = [];
+
+  for (const vault of vaults) {
+    try {
+      const registry = await fetchRegistry(vault);
+      const packages = registry.packages || {};
+      const pkgData = packages[name];
+      if (pkgData) results.push({ pkg: { name, ...pkgData }, vault });
+    } catch {
+      // Skip unavailable vaults
+    }
+  }
+  return results;
 }

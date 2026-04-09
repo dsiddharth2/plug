@@ -18,13 +18,14 @@ vi.mock('../src/utils/paths.js', async (importOriginal) => {
   };
 });
 
-const { getCachedRegistry, cacheRegistry, fetchRegistry, findPackage } = await import('../src/utils/registry.js');
+const { getCachedRegistry, cacheRegistry, fetchRegistry, findPackage, findAllPackages } = await import('../src/utils/registry.js');
 
+// registry.json uses an object-based packages schema (key = package name)
 const sampleRegistry = {
-  packages: [
-    { name: 'code-review', type: 'command', version: '1.0.0', description: 'Code review command' },
-    { name: 'api-patterns', type: 'skill', version: '1.0.0', description: 'API patterns skill' },
-  ],
+  packages: {
+    'code-review': { type: 'command', version: '1.0.0', path: 'registry/code-review', description: 'Code review command' },
+    'api-patterns': { type: 'skill', version: '1.0.0', path: 'registry/api-patterns', description: 'API patterns skill' },
+  },
 };
 
 const sampleVault = { name: 'official', owner: 'plugvault', repo: 'plugvault', branch: 'main', private: false };
@@ -74,7 +75,7 @@ describe('registry utils', () => {
       await cacheRegistry('official', sampleRegistry);
       // If fetch is called it would fail; the fact it doesn't means cache was used
       const result = await fetchRegistry(sampleVault);
-      expect(result.packages).toHaveLength(2);
+      expect(Object.keys(result.packages)).toHaveLength(2);
     });
 
     it('fetches from network when cache is empty', async () => {
@@ -84,7 +85,7 @@ describe('registry utils', () => {
         json: async () => sampleRegistry,
       });
       const result = await fetchRegistry(sampleVault);
-      expect(result.packages).toHaveLength(2);
+      expect(Object.keys(result.packages)).toHaveLength(2);
       expect(global.fetch).toHaveBeenCalledOnce();
     });
 
@@ -100,12 +101,21 @@ describe('registry utils', () => {
   });
 
   describe('findPackage', () => {
-    it('finds package by name in cached registry', async () => {
+    it('finds package by name in cached registry (object schema)', async () => {
       await cacheRegistry('official', sampleRegistry);
       const result = await findPackage('code-review');
       expect(result).not.toBeNull();
       expect(result.pkg.name).toBe('code-review');
+      expect(result.pkg.type).toBe('command');
       expect(result.vault.name).toBe('official');
+    });
+
+    it('finds skill by name in cached registry', async () => {
+      await cacheRegistry('official', sampleRegistry);
+      const result = await findPackage('api-patterns');
+      expect(result).not.toBeNull();
+      expect(result.pkg.name).toBe('api-patterns');
+      expect(result.pkg.type).toBe('skill');
     });
 
     it('returns null when package not found', async () => {
@@ -118,6 +128,28 @@ describe('registry utils', () => {
       await cacheRegistry('official', sampleRegistry);
       const result = await findPackage('code-review', 'official');
       expect(result).not.toBeNull();
+    });
+
+    it('returns null when searching non-existent vault', async () => {
+      await cacheRegistry('official', sampleRegistry);
+      const result = await findPackage('code-review', 'other-vault');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findAllPackages', () => {
+    it('returns all vaults containing the package', async () => {
+      await cacheRegistry('official', sampleRegistry);
+      const results = await findAllPackages('code-review');
+      expect(results).toHaveLength(1);
+      expect(results[0].pkg.name).toBe('code-review');
+      expect(results[0].vault.name).toBe('official');
+    });
+
+    it('returns empty array when package not found', async () => {
+      await cacheRegistry('official', sampleRegistry);
+      const results = await findAllPackages('nonexistent');
+      expect(results).toHaveLength(0);
     });
   });
 });
