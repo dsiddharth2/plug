@@ -203,14 +203,14 @@
       "phase": "Documentation",
       "title": "CLI README and contributing guide",
       "status": "completed",
-      "notes": "plug/README.md: quick start, all commands with options/examples, vault management guide, private repo setup, error reference, storage layout. plug/CONTRIBUTING.md: dev setup, project structure, code style, adding a new command (skeleton), testing conventions, PR process."
+      "notes": "Documentation complete, 172 tests passing."
     },
     {
       "id": "7.2",
       "phase": "Documentation",
       "title": "Skill authoring guide and registry README",
       "status": "completed",
-      "notes": "plug/docs/authoring-guide.md: skills vs commands, package structure, full meta.json schema with versioning rules, command+skill templates, step-by-step vault contribution, hosting your own vault, pre-publish checklist. plugvault/README.md: package table listing all 2 packages, quick start, registry structure. plugvault/CONTRIBUTING.md: fork+test+PR workflow, naming conventions, review criteria."
+      "notes": "Documentation complete, 172 tests passing."
     },
     {
       "id": "7.V",
@@ -218,7 +218,7 @@
       "title": "VERIFY: Documentation",
       "type": "verify",
       "status": "completed",
-      "notes": "PASSED. 172 tests across 16 files, 0 failures. README has quick start + all commands. Authoring guide has complete meta.json schema. Registry README lists all packages. All doc files present. Awaiting commit and push."
+      "notes": "Documentation complete, 172 tests passing."
     },
     {
       "id": "8.1",
