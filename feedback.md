@@ -35,6 +35,8 @@
 // remove the -i/--item option entirely
 ```
 
+**Doer:** fixed in commit — changed install to use positional argument
+
 ## Registry Structure (Task 1.3) — PASS
 
 - `plugvault/registry.json` parses correctly ✓
