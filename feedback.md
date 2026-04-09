@@ -1,57 +1,94 @@
-# PlugVault CLI — Phase 1 Review
+# PlugVault CLI — Phase 2 Review
 
 **Reviewer:** plug-reviewer
 **Date:** 2026-04-09
-**Phase:** 1 — Scaffolding
+**Phase:** 2 — Core Utilities (cumulative: Phases 1-2)
 **Verdict:** APPROVED
 
 ---
 
-## Structure & Setup — PASS
+## Test Infrastructure (Task 2.0) — PASS
 
-- `plug/package.json` has `"type": "module"` (ESM) ✓
-- Bin entry `"plug": "./bin/plug.js"` is correct ✓
-- `plug/bin/plug.js` has the `#!/usr/bin/env node` shebang ✓
-- Dependencies are correct: commander, chalk@5, ora@8, @inquirer/prompts ✓
-- No `node-fetch` dependency ✓
-- `engines.node >= 18` specified ✓
-- `node plug/bin/plug.js --help` shows all 7 subcommands (init, install, remove, list, search, update, vault) ✓
+- vitest configured in devDependencies (`^3.1.1`) ✓
+- `"test": "vitest run"` script in package.json ✓
+- `npm test` runs and exits 0 — **51 tests pass across 7 test files** ✓
+- Smoke test present (`tests/smoke.test.js`) ✓
 
-## Commander Wiring (Task 1.2) — PASS
+## Constants & Paths (Task 2.1) — PASS
 
-- Each subcommand has its own file in `src/commands/` ✓
-- All 7 subcommands registered and showing in help ✓
-- Vault has all 6 nested subcommands: add, remove, list, set-default, set-token, sync ✓
-- `install` uses positional `<name>` argument (no `-i` flag) ✓ — fixed in commit 3468d0b
+- All constants centralized in `src/constants.js` — vault names, GitHub URLs, cache TTL, dir names ✓
+- `CACHE_TTL_MS = 3_600_000` (1 hour) ✓
+- `OFFICIAL_VAULT` object with name/owner/repo/branch/private ✓
+- `src/utils/paths.js` uses `path.join()` and `os.homedir()` everywhere — no hardcoded slashes ✓
+- Both local (cwd-based) and global (homedir-based) scope supported for skills, commands, and installed paths ✓
+- `ensureDir()` uses `fs.mkdir({ recursive: true })` ✓
+- 11 unit tests covering all path functions plus ensureDir (create + idempotent) ✓
 
-## Registry Structure (Task 1.3) — PASS
+## Config & Auth (Task 2.2) — PASS
 
-- `plugvault/registry.json` parses correctly ✓
-- Contains 2 entries: `code-review` (command) and `api-patterns` (skill) ✓
-- Each has a valid `meta.json` with all required fields (name, type, version, description, author, tags, entry) ✓
-- Entry `.md` files exist with meaningful, substantive content ✓
-  - `code-review.md`: 31 lines covering security, performance, quality review guidance
-  - `api-patterns.md`: 55 lines covering REST API patterns, naming, response format, status codes
+- `getConfig()` auto-seeds official vault on first run (ENOENT → write defaults) ✓
+- Corrupt config.json backed up to `.bak` and regenerated ✓
+- `structuredClone(DEFAULT_CONFIG)` used to avoid mutation — good practice ✓
+- `saveConfig()` calls `ensureDir()` before writing ✓
+- `getVault()`, `getDefaultVault()`, `getResolveOrder()` all correctly delegate to `getConfig()` ✓
+- Auth resolution chain: `PLUGVAULT_TOKEN_{NAME}` → `PLUGVAULT_GITHUB_TOKEN` → `config.vaults[name].token` ✓
+- Vault name sanitized for env var lookup (uppercase, hyphens→underscores) ✓
+- `getAuthHeaders()` returns `{ Authorization: 'Bearer <token>' }` or `{}` ✓
+- 8 config tests + 6 auth tests — all pass ✓
+- Tests mock `paths.js` to use temp dirs (no real `~/.plugvault` touched) ✓
 
-## Code Quality — PASS
+## Registry & Fetcher (Task 2.3) — PASS
 
-- ESM `import`/`export` used throughout — no `require()` or `module.exports` found ✓
-- No hardcoded Unix paths ✓
-- No dead code, no TODO/FIXME/HACK comments ✓
-- `.gitignore` includes `node_modules/` ✓
-- MIT LICENSE present ✓
+- `fetchRegistry()` uses **native `fetch`** — no `node-fetch` import ✓
+- Cache implemented: `cacheRegistry()` writes to `~/.plugvault/cache/{name}.json`, `getCachedRegistry()` checks `stat.mtimeMs` against `CACHE_TTL_MS` ✓
+- Stale cache (>1hr) returns null, triggering re-fetch ✓
+- `findPackage()` iterates `getResolveOrder()` vaults, returns `{ pkg, vault }` or `null` ✓
+- `findPackage()` silently skips unavailable vaults (catch in loop) ✓
+- `downloadFile()` constructs correct GitHub raw URL: `raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}` ✓
+- Auth headers forwarded to both registry and file fetches ✓
+- Error classification: 401/403 → `AUTH_FAILED`, 404 → `NOT_FOUND`, ENOTFOUND/ECONNREFUSED → `NETWORK_ERROR` ✓
+- 10 registry tests + 6 fetcher tests — all mock `global.fetch`, no real HTTP calls ✓
+
+## Tracker (Task 2.4) — PASS
+
+- `getInstalled()` reads `.plugvault/installed.json`, returns `{ installed: {} }` on ENOENT ✓
+- Corrupt `installed.json` backed up to `.bak` and reset to empty ✓
+- `trackInstall()` merges metadata with `installedAt` timestamp ✓
+- `trackRemove()` deletes key from installed map, no-throw on non-existent ✓
+- `isInstalled()` uses `Object.prototype.hasOwnProperty.call()` — safe against prototype pollution ✓
+- Local vs global scope: separate files, tested independently ✓
+- `saveInstalled()` calls `ensureDir(path.dirname(...))` before writing ✓
+- 9 tests including corrupt-file recovery and scope isolation ✓
+
+## Cross-cutting — PASS
+
+- **ESM throughout:** All files use `import`/`export`, no `require()` found ✓
+- **No hardcoded paths:** All paths constructed via `path.join()` ✓
+- **Error handling:** Network errors, auth failures, 404s, corrupt JSON all handled with descriptive error codes and messages ✓
+- **Loose coupling:** No circular dependencies — `paths` ← `config` ← `auth` ← `registry`/`fetcher`; `paths` ← `tracker`. Clean dependency tree ✓
+- **Test isolation:** All tests mock the filesystem via `paths.js` overrides; network calls mocked via `global.fetch`. No real HTTP or home-dir mutations ✓
+
+## Phase 1 Regression Check — PASS
+
+- `node plug/bin/plug.js --help` still shows all 7 subcommands ✓
+- `plugvault/registry.json` unchanged and valid ✓
+- Package.json bin entry, ESM config, engines all intact ✓
 
 ## progress.json — PASS
 
-- Tasks 1.1, 1.2, 1.3, and 1.V all marked `"completed"` ✓
-- Notes accurately reflect what was done in each task ✓
+- Tasks 2.0–2.4 and 2.V all marked `"completed"` with accurate notes ✓
+- Phase 1 tasks remain correctly completed ✓
 
 ---
 
 ## Summary
 
-**18 of 18 checks passed.** Phase 1 scaffolding is complete and correct.
+**All checks passed — 0 issues found.** Phase 2 delivers a clean, well-tested utility layer:
 
-The one issue from the initial review (install command using `-i` flag instead of positional argument) was fixed in commit 3468d0b. All subcommands are properly wired, the registry structure is valid, ESM is used throughout, and progress tracking is accurate.
+- 6 utility modules with clear separation of concerns
+- 51 tests with 100% mock isolation (no real I/O in tests)
+- Correct Windows path handling via `path.join` throughout
+- Proper error classification with structured error codes
+- Cache TTL, auth resolution chain, and corrupt-file recovery all implemented per spec
 
-Phase 1 is approved. Ready to proceed with Phase 2 (Core Utilities).
+Phase 2 is approved. Ready to proceed with Phase 3 (Core Commands).
