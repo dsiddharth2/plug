@@ -3,7 +3,7 @@
 **Reviewer:** plug-reviewer
 **Date:** 2026-04-09
 **Phase:** 1 — Scaffolding
-**Verdict:** CHANGES NEEDED
+**Verdict:** APPROVED
 
 ---
 
@@ -17,25 +17,12 @@
 - `engines.node >= 18` specified ✓
 - `node plug/bin/plug.js --help` shows all 7 subcommands (init, install, remove, list, search, update, vault) ✓
 
-## Commander Wiring (Task 1.2) — FAIL
+## Commander Wiring (Task 1.2) — PASS
 
 - Each subcommand has its own file in `src/commands/` ✓
 - All 7 subcommands registered and showing in help ✓
 - Vault has all 6 nested subcommands: add, remove, list, set-default, set-token, sync ✓
-- **ISSUE:** `install` uses `-i, --item <name>` (requiredOption) instead of a positional `<name>` argument. PLAN.md specifies `plug install <name>` with a positional argument, and the task file explicitly states "no -i flag on install". The command signature must be `.command('install <name>')` with `<name>` as a positional argument, not an option flag.
-
-**Fix required in** `plug/src/commands/install.js`:
-```js
-// Current (wrong):
-.command('install')
-.requiredOption('-i, --item <name>', '...')
-
-// Should be:
-.command('install <name>')
-// remove the -i/--item option entirely
-```
-
-**Doer:** fixed in commit 3468d0b — changed install to use positional argument
+- `install` uses positional `<name>` argument (no `-i` flag) ✓ — fixed in commit 3468d0b
 
 ## Registry Structure (Task 1.3) — PASS
 
@@ -63,10 +50,8 @@
 
 ## Summary
 
-**17 of 18 checks passed.** Phase 1 scaffolding is solid — project structure, ESM setup, Commander wiring, registry structure, and code quality are all correct.
+**18 of 18 checks passed.** Phase 1 scaffolding is complete and correct.
 
-**One change is required before approval:**
+The one issue from the initial review (install command using `-i` flag instead of positional argument) was fixed in commit 3468d0b. All subcommands are properly wired, the registry structure is valid, ESM is used throughout, and progress tracking is accurate.
 
-1. **Remove the `-i` flag from `install`** — change `install` to accept `<name>` as a positional argument (`.command('install <name>')`), not as `-i, --item <name>`. This was explicitly called out in the plan and the review checklist.
-
-Once fixed, this phase is ready for approval.
+Phase 1 is approved. Ready to proceed with Phase 2 (Core Utilities).
