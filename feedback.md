@@ -35,7 +35,7 @@
 // remove the -i/--item option entirely
 ```
 
-**Doer:** fixed in commit — changed install to use positional argument
+**Doer:** fixed in commit 3468d0b — changed install to use positional argument
 
 ## Registry Structure (Task 1.3) — PASS
 
