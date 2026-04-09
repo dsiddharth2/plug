@@ -1,302 +1,196 @@
-# plugvault
+# plug
 
-A CLI for installing reusable Claude skills and commands from GitHub-hosted vaults.
+A package manager for Claude Code. Install reusable skills and commands into any project from GitHub-hosted registries.
 
+```bash
+npm install -g plugvault
+plug init
+plug install code-review
 ```
+
+## What is this?
+
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) supports two types of extensions:
+
+- **Skills** (`.claude/skills/*.md`) — background context that shapes how Claude works in your project. Think coding standards, API patterns, architecture rules.
+- **Commands** (`.claude/commands/*.md`) — on-demand actions you invoke with `/command-name`. Think code review, test generation, documentation.
+
+These are just markdown files. `plug` makes it easy to share, discover, and install them across projects — like npm, but for `.md` files.
+
+## Install
+
+```bash
 npm install -g plugvault
 ```
 
-Requires **Node.js 18+**.
+Requires Node.js 18+.
 
----
-
-## Quick Start
+## Getting started
 
 ```bash
-# 1. Initialize a project
+# Set up your project
 cd my-project
 plug init
 
-# 2. Search for available packages
+# Browse what's available
 plug search review
+plug list --remote
 
-# 3. Install a package
+# Install a package
 plug install code-review
 
-# 4. Use it in Claude
-# Commands: /code-review
-# Skills:   automatically available in your Claude project
+# Now use it in Claude Code
+# /code-review  (for commands)
+# Skills load automatically as project context
 ```
-
----
 
 ## Commands
 
 ### `plug init`
 
-Sets up `.claude/skills/`, `.claude/commands/`, and `.plugvault/installed.json` in the current directory. Safe to run multiple times — skips existing directories.
-
-```bash
-plug init
-```
-
----
+Creates `.claude/skills/`, `.claude/commands/`, and `.plugvault/installed.json` in the current directory. Safe to re-run.
 
 ### `plug install <name>`
 
-Downloads a skill or command from a vault and places it in the correct `.claude/` directory.
-
 ```bash
-plug install code-review            # install from any vault
-plug install official/code-review   # install from a specific vault
-plug install -g code-review         # install globally to ~/.claude/
+plug install code-review              # from any vault (resolve order)
+plug install official/code-review     # from a specific vault
+plug install -g code-review           # install globally to ~/.claude/
 ```
 
-**Options:**
-
-| Flag | Description |
-|------|-------------|
-| `-g, --global` | Install to `~/.claude/` instead of the project directory |
-
-If the same package exists in multiple vaults, you will be prompted to choose. Use `--yes` to auto-pick the first match.
-
----
+Downloads the package from a vault and places it in the correct `.claude/` subdirectory. If the package exists in multiple vaults, you'll be prompted to choose (or use `--yes` to auto-pick the first match).
 
 ### `plug remove <name>`
 
-Removes an installed skill or command and updates `installed.json`.
-
 ```bash
 plug remove code-review
-plug remove -g code-review   # remove a globally installed package
+plug remove -g code-review            # remove a global install
 ```
-
-**Options:**
-
-| Flag | Description |
-|------|-------------|
-| `-g, --global` | Remove from the global `~/.claude/` installation |
-
----
 
 ### `plug list`
 
-Shows all installed packages. Use `--remote` to list everything available across your vaults.
-
 ```bash
-plug list                    # show installed packages
-plug list --remote           # show all packages in all vaults
-plug list --vault official   # filter by vault
-plug list --type skill       # filter by type (skill or command)
+plug list                             # installed packages
+plug list --remote                    # everything available across vaults
+plug list --remote --type skill       # filter by type
+plug list --remote --vault official   # filter by vault
 ```
-
-**Options:**
-
-| Flag | Description |
-|------|-------------|
-| `--remote` | Fetch and display all packages from vaults |
-| `--vault <name>` | Filter by vault name |
-| `--type <type>` | Filter by type: `skill` or `command` |
-
----
 
 ### `plug search <keyword>`
 
-Searches package names, descriptions, and tags across all vaults with relevance scoring.
-
 ```bash
 plug search review
-plug search api --vault official
-plug search design --type skill
+plug search api --type skill
+plug search design --vault official
 ```
 
-**Options:**
+Searches names, descriptions, and tags across all vaults. Results are ranked by relevance.
 
-| Flag | Description |
-|------|-------------|
-| `--vault <name>` | Search in a specific vault only |
-| `--type <type>` | Filter by type: `skill` or `command` |
-
----
-
-### `plug update <name>`
-
-Checks for a newer version and re-downloads if one is available.
+### `plug update`
 
 ```bash
-plug update code-review      # update a single package
-plug update --all            # update all installed packages
+plug update code-review               # update one package
+plug update --all                     # update everything
 ```
 
-**Options:**
+Checks the registry for newer versions and re-downloads if available.
 
-| Flag | Description |
-|------|-------------|
-| `--all` | Update all installed packages |
+### `plug vault <subcommand>`
 
----
-
-### `plug vault`
-
-Manages vault registries.
-
-#### `plug vault add <name> <url>`
-
-Registers a GitHub repository as a vault.
+Manage registry sources.
 
 ```bash
-plug vault add myorg https://github.com/myorg/plugvault
-plug vault add private-vault https://github.com/myorg/private-vault --token ghp_xxx --private
+plug vault list                       # show registered vaults
+plug vault add work https://github.com/mycompany/claude-skills
+plug vault add private https://github.com/myorg/vault --token ghp_xxx --private
+plug vault remove work
+plug vault set-default work           # change resolve order
+plug vault set-token private ghp_new  # update auth token
+plug vault sync                       # re-fetch all registries
 ```
 
-**Options:**
+## Global flags
 
-| Flag | Description |
-|------|-------------|
-| `--token <token>` | GitHub token for private repositories |
-| `--private` | Mark the vault as private |
-
-#### `plug vault remove <name>`
-
-Removes a vault and clears its cache.
+Placed before the subcommand:
 
 ```bash
-plug vault remove myorg
-plug vault remove official --force   # the official vault requires --force
+plug --verbose install code-review    # debug output to stderr
+plug --json list                      # machine-readable JSON to stdout
+plug --yes install code-review        # skip all prompts
 ```
 
-#### `plug vault list`
+## Vaults
 
-Shows all registered vaults with their URL, visibility, default status, and cached package count.
+A vault is a GitHub repository with a `registry.json` at its root. The official vault is registered by default.
 
-```bash
-plug vault list
-```
-
-#### `plug vault set-default <name>`
-
-Changes the default vault and moves it to the top of the resolve order.
-
-```bash
-plug vault set-default myorg
-```
-
-#### `plug vault set-token <name> <token>`
-
-Updates the auth token for a vault and tests connectivity.
-
-```bash
-plug vault set-token private-vault ghp_newtoken
-```
-
-#### `plug vault sync`
-
-Clears and re-fetches all vault registries to pick up new packages.
-
-```bash
-plug vault sync
-```
-
----
-
-## Global Flags
-
-These flags work with every command and must be placed before the subcommand:
-
-```bash
-plug --verbose install code-review   # debug output: URLs, auth method, cache hits
-plug --json list                     # machine-readable JSON output
-plug --yes install code-review       # skip all interactive prompts
-```
-
-| Flag | Description |
-|------|-------------|
-| `--verbose` | Print debug info to stderr |
-| `--json` | Output results as JSON to stdout |
-| `--yes` | Auto-confirm overwrites, auto-pick first vault on conflict |
-
----
-
-## Vault Management
-
-### Multiple Vaults
-
-You can register multiple vaults. Packages are resolved in the configured order — the default vault is checked first.
+### Multiple vaults
 
 ```bash
 plug vault add work https://github.com/mycompany/claude-skills
 plug vault set-default work
-plug vault list
 ```
 
-### Private Vaults
+Packages resolve in configured order. The default vault is checked first.
 
-Private GitHub repositories require a personal access token with `repo` read scope.
+### Private vaults
 
-**Option 1 — Store in config:**
+Private repos need a GitHub personal access token with `repo` read scope.
 
 ```bash
-plug vault add private-vault https://github.com/myorg/private-vault \
-  --token ghp_yourtoken \
-  --private
+# Store token in config
+plug vault add corp https://github.com/corp/skills --token ghp_xxx --private
+
+# Or use environment variables
+export PLUGVAULT_TOKEN_CORP=ghp_xxx          # vault-specific (highest priority)
+export PLUGVAULT_GITHUB_TOKEN=ghp_xxx        # fallback for all vaults
 ```
 
-**Option 2 — Environment variables:**
+Token resolution: `PLUGVAULT_TOKEN_{VAULT_NAME}` > `PLUGVAULT_GITHUB_TOKEN` > config file.
 
-```bash
-# Vault-specific token (takes priority)
-export PLUGVAULT_TOKEN_PRIVATE_VAULT=ghp_yourtoken
-
-# Generic fallback token
-export PLUGVAULT_GITHUB_TOKEN=ghp_yourtoken
-```
-
-Token resolution order: `PLUGVAULT_TOKEN_{VAULT_NAME}` → `PLUGVAULT_GITHUB_TOKEN` → config file token.
-
----
-
-## How Packages Work
-
-**Commands** are placed in `.claude/commands/` and invoked with a `/` prefix in Claude:
-
-```
-/code-review
-```
-
-**Skills** are placed in `.claude/skills/` and are automatically loaded as context in your Claude project.
-
-**Global vs. project-local:** Use `-g` to install to `~/.claude/` (available in all projects). Without `-g`, packages are installed in the current project's `.claude/` directory.
-
----
-
-## Error Reference
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Connection failed. Check your internet connection.` | No network | Check connectivity |
-| `Package '<name>' not found in any vault.` | Package doesn't exist | Run `plug search <name>` |
-| `Authentication failed for vault '<name>'.` | Missing or invalid token | `plug vault set-token <name> <token>` |
-| `Cannot write to <path>. Check permissions.` | File permission denied | Fix directory permissions |
-| `Warning: config.json was corrupt. Backed up and reset.` | Corrupt config | Automatically recovered; check `config.json.bak` |
-
----
-
-## Storage Layout
+## How it works
 
 ```
 ~/.plugvault/
-  config.json           # vault registrations and settings
-  cache/                # cached registry.json files (1-hour TTL)
+  config.json          # vault registrations
+  cache/               # registry.json cache (1-hour TTL)
 
 <project>/
   .plugvault/
-    installed.json      # tracks locally installed packages
+    installed.json     # tracks installed packages
   .claude/
-    commands/           # installed Claude commands
-    skills/             # installed Claude skills
+    commands/          # installed commands
+    skills/            # installed skills
 ```
 
----
+`plug install` fetches `registry.json` from the vault, looks up the package, downloads its `meta.json` and `.md` file, and places the `.md` in the right directory. Package metadata is tracked in `installed.json` for updates and removal.
+
+## Creating packages
+
+See the [Skill Authoring Guide](docs/authoring-guide.md) for the full walkthrough. The short version:
+
+A package is a directory in a vault registry containing two files:
+
+```
+registry/my-package/
+  meta.json            # name, version, type, description, tags, entry
+  my-package.md        # the actual skill or command content
+```
+
+```json
+{
+  "name": "my-package",
+  "type": "command",
+  "version": "1.0.0",
+  "description": "One-line description for search results",
+  "tags": ["tag1", "tag2"],
+  "entry": "my-package.md"
+}
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and code style.
+To contribute packages to the official registry, see the [registry CONTRIBUTING guide](../plugvault/CONTRIBUTING.md).
 
 ## License
 
