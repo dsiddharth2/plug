@@ -1,0 +1,9 @@
+{
+  "name": "code-review",
+  "type": "command",
+  "version": "1.0.0",
+  "description": "Deep code review with security & performance analysis",
+  "author": "plugvault",
+  "tags": ["review", "quality", "security", "performance"],
+  "entry": "code-review.md"
+}

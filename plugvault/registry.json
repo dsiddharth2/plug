@@ -1,0 +1,18 @@
+{
+  "name": "plugvault-official",
+  "version": "1.0.0",
+  "packages": {
+    "code-review": {
+      "type": "command",
+      "version": "1.0.0",
+      "path": "registry/code-review",
+      "description": "Deep code review with security & performance analysis"
+    },
+    "api-patterns": {
+      "type": "skill",
+      "version": "1.0.0",
+      "path": "registry/api-patterns",
+      "description": "Enforces consistent API design patterns"
+    }
+  }
+}
