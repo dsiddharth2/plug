@@ -217,7 +217,7 @@
 
 #### VERIFY: Polish & Error Handling
 - All commands show spinners during network ops
-- `plug install -i nonexistent` shows helpful error, not a stack trace
+- `plug install nonexistent` shows helpful error, not a stack trace
 - `plug --json list` outputs valid JSON
 - `plug --verbose install -i code-review` shows debug info
 - Corrupt config.json is auto-repaired on next run
