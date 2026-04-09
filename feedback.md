@@ -1,8 +1,8 @@
-# PlugVault CLI — Phase 5 Review
+# PlugVault CLI — Phase 6 Review
 
 **Reviewer:** plug-reviewer
-**Date:** 2026-04-09 21:17:00+05:30
-**Phase:** 5 — Search & Update (cumulative: Phases 1-5)
+**Date:** 2026-04-09 21:50:00+05:30
+**Phase:** 6 — Polish & Error Handling (cumulative: Phases 1-6)
 **Verdict:** APPROVED
 
 > See the recent git history of this file to understand the context of this review.
@@ -11,113 +11,174 @@
 
 ## Test Results
 
-- **148 tests pass across 14 test files** — up from 119 in Phase 4 PASS
-- All Phase 1-4 tests still pass (no regressions) PASS
-- Phase 5 adds 29 new tests: 15 in `search.test.js`, 14 in `update.test.js`
+- **172 tests pass across 16 test files** — up from 148 in Phase 5 PASS
+- All Phase 1-5 tests still pass (no regressions) PASS
+- Phase 6 adds 24 new tests: 19 in `context.test.js`, 3 in `ui.test.js`, 2 in `registry.test.js`
+- Full suite runs in ~1s PASS
 
 ## Diff Stats
 
 ```
-plug/src/commands/search.js | 115 +++++++++++++-
-plug/src/commands/update.js | 158 +++++++++++++++++-
-plug/tests/search.test.js   | 284 (new)
-plug/tests/update.test.js   | 338 (new)
-plugvault/registry.json     |   6 +-
-progress.json               |   4 +-
+plug/src/commands/init.js    |  12 +-
+plug/src/commands/install.js | 169 ++++++++++--------
+plug/src/commands/list.js    |  38 +-
+plug/src/commands/remove.js  |  25 +-
+plug/src/commands/search.js  |  28 +-
+plug/src/commands/update.js  |  98 +++++----
+plug/src/commands/vault.js   | 145 +++++++-----
+plug/src/index.js            |  11 +-
+plug/src/utils/context.js    |  40 (new)
+plug/src/utils/registry.js   |  13 +-
+plug/src/utils/ui.js         |  25 (new)
+plug/tests/context.test.js   | 339 (new)
+plug/tests/ui.test.js        |  31 (new)
+16 files changed, 857 insertions(+), 133 deletions(-)
 ```
 
 ---
 
-## `plug search <keyword>` (Task 5.1) — PASS
+## Task 6.1: Spinners & Color Output — PASS
 
-**Relevance scoring** — Clean four-tier model (`scoreMatch`): exact name (40), partial name (30), description (20), tag (10). Case-insensitive via `.toLowerCase()` across all fields. Returns 0 for no match, so non-matches are filtered out before results array. PASS
+**TTY-aware spinner** — `ui.js` wraps ora with a no-op pattern when `process.stdout.isTTY` is falsy. All methods return `this` for chaining. Text setter is a no-op. Tests confirm all 6 methods exist and are chainable. PASS
 
-**Multi-vault support** — Iterates `getResolveOrder()` vaults, fetches each registry, collects results across all vaults. Each result carries its source vault reference. PASS
+**Spinner placement** — Spinners added to every network operation:
+- `install.js`: resolve spinner (findPackage/findAllPackages), download spinner (meta.json + entry file)
+- `list.js`: remote registry fetch spinner
+- `search.js`: per-vault search spinner with text updates
+- `update.js`: check spinner (findPackage), download spinner (meta.json + entry file)
+- `vault.js`: connectivity spinner (add, set-token), sync spinner (per-vault)
+PASS
 
-**Unavailable vault handling** — Wraps `fetchRegistry` in try/catch, silently `continue`s on failure. Tested with mock that rejects second vault fetch — first vault results still returned. PASS
+**Spinner lifecycle** — Every `createSpinner()` has a matching `stop()` in both the success path and the catch path. No orphan spinners possible. PASS
 
-**`--vault` filter** — Filters `searchVaults` array before iteration. Throws clear error (`Vault 'X' not found.`) if vault name doesn't exist in config. PASS
-
-**`--type` filter** — Applied inside the package loop: `if (options.type && pkg.type !== options.type) continue`. Tested both `type: 'command'` and `type: 'skill'` filters, plus exclusion case. PASS
-
-**Result ordering** — Sorted by score descending, then by name alphabetically for ties. Two dedicated ordering tests confirm exact-name > partial-name > description precedence. PASS
-
-**Output formatting** — `printSearchResults` displays type badge, version, vault source, description, and tags. Empty results show yellow "No packages found" message. PASS
-
-**Done criteria check** — "`plug search review` finds code-review across vaults, filters work correctly": test `finds package by partial name match` searches "review" and finds "code-review". Multi-vault test confirms cross-vault search. Filter tests confirm both `--vault` and `--type`. PASS
+**Chalk colors** — Consistent palette: `chalk.green` for success messages, `chalk.red` for errors, `chalk.yellow` for warnings/not-installed/empty results, `chalk.cyan` for info/paths, `chalk.dim` for up-to-date/version labels, `chalk.bold` for summaries. PASS
 
 ---
 
-## `plug update <name>` and `plug update --all` (Task 5.2) — PASS
+## Task 6.2: Error Handling — PASS
 
-**`compareSemver` utility** — Parses semver as `String(v || '0.0.0').split('.').map(Number)`. Handles major/minor/patch comparisons and missing patch segments. 4 test cases cover newer, equal, older, and truncated versions. PASS
+**Network error (ENOTFOUND/ECONNREFUSED):**
+- `fetcher.js:19-24`: Catches fetch rejection, checks `err.cause?.code` (Node 18+ fetch wraps in cause) and `err.code` fallback. Throws `{ code: 'NETWORK_ERROR', message: 'Connection failed. Check your internet connection.' }`.
+- `registry.js:65-71`: Same pattern duplicated for `fetchRegistry`. Both match PLAN spec exactly.
+- Tested in `context.test.js:277-283`. PASS
 
-**Single package update (`runUpdate`)** — Reads installed record, finds latest via `findPackage(name, record.vault)`, compares semver. Four status outcomes:
-- `updated`: newer version available, re-downloads meta.json + entry file, writes to disk, updates tracker. Tested with version bump 1.0.0 → 1.2.0. PASS
-- `up-to-date`: `compareSemver(latest, installed) <= 0`. Covers both equal and installed-newer-than-registry cases. PASS
-- `not-installed`: no record in `installed.installed`. PASS
-- `vault-unavailable`: `findPackage` throws/returns null when vault is down. PASS
+**404 (not found):**
+- `fetcher.js:34-38`: Throws `{ code: 'NOT_FOUND' }` with file-level message.
+- `registry.js:83-87`: Throws `{ code: 'NOT_FOUND' }` with vault-level message.
+- Tested in `context.test.js:295-298`. PASS
 
-**Meta.json fallback** — If meta.json download fails, constructs fallback meta from registry data and record type. Same pattern as install command — consistent. PASS
+**Auth failed (401/403):**
+- `fetcher.js:28-33`: Throws `{ code: 'AUTH_FAILED' }` with `plug vault set-token` hint.
+- `registry.js:75-80`: Same pattern with vault name interpolated.
+- Test at `context.test.js:300-307` confirms both code and message contain the set-token hint. PASS
 
-**File write** — Downloads entry file content, writes to correct destination (`skills/` or `commands/` based on type), verifies via `readFile` in test. PASS
+**Corrupt config.json:**
+- `config.js:30-37`: Catches `SyntaxError`, copies to `.bak`, warns to stderr, resets to `DEFAULT_CONFIG`.
+- Tested in `config.test.js`. Message matches: "Warning: config.json was corrupt. Backed up and reset to defaults." PASS
 
-**Tracker update** — Calls `trackInstall` with new version but preserves original `installedAt` timestamp. Good — maintains install history while updating version. PASS
+**Corrupt installed.json:**
+- `tracker.js:22-27`: Same backup-and-reset pattern. Message: "Warning: installed.json was corrupt. Backed up and reset."
+- Tested in `tracker.test.js`. PASS
 
-**`--all` flag (`runUpdateAll`)** — Iterates `Object.keys(installed.installed)`, calls `runUpdate` per package, counts updated/upToDate/errors. Prints summary. Tested: empty installed, all-updated, all-up-to-date. PASS
+**File permission error (EACCES/EPERM):**
+- `install.js:164-170`: Catches write failure, rethrows with "Cannot write to <path>. Check permissions."
+- `update.js:145-150`: Same pattern.
+- `remove.js:46-50`: Same pattern for unlink. PASS
 
-**`-g/--global` flag** — Passes `isGlobal` through to `getInstalled`, `getClaudeSkillsDir`/`getClaudeCommandsDir`, and `trackInstall`. Consistent with install/remove pattern. PASS
+**Edge cases:**
+- Remove non-existent: `remove.js:33-38` prints yellow warning, returns without throwing. Exit 0. Tested in `context.test.js:309-313`. PASS
+- Vault add duplicate: `vault.js:82-83` throws "Vault 'X' already exists." Tested in `vault.test.js`. PASS
 
-**Error isolation in `--all`** — Individual package errors are caught, logged, and added to `errors` array — doesn't abort the loop. PASS
-
-**Done criteria check** — "`plug update code-review` detects and applies version change": tested. "`plug update --all` checks all installed packages": tested. PASS
-
----
-
-## Registry Schema Update — PASS
-
-- `tags` arrays added to both `code-review` and `api-patterns` entries in `plugvault/registry.json`. Required for search tag matching to work against the official vault. No breaking changes — `tags` was previously absent, and all code that reads tags uses `(pkg.tags || [])` defensively. PASS
-
----
-
-## Test Quality Assessment — PASS
-
-**Search tests (15):** Cover all four score tiers (exact, partial, description, tag), case insensitivity, empty results, result ordering (2 tests with custom registries), both filter types, vault-not-found error, multi-vault with different registries, and unavailable vault resilience. No redundant tests — each adds distinct coverage. PASS
-
-**Update tests (14):** Cover `compareSemver` (4 cases), single-update happy path with version bump, installed.json persistence after update, up-to-date (equal version), up-to-date (installed newer), not-installed, vault-unavailable, file content verification, updateAll empty/updated/up-to-date. No redundant tests. PASS
-
-**Untested surfaces (acceptable):**
-- `printSearchResults` output formatting — not tested directly, but it's a pure display function with no logic branches beyond empty/non-empty. Acceptable for Phase 6 polish.
-- `plug update` with `--all` and some packages erroring — the error catch path in `runUpdateAll` is present but not exercised. NOTE — minor gap, acceptable.
+**All error-class messages match PLAN.md spec.** No stack traces leaked — every Commander action wraps `runX()` in try/catch with `console.error(chalk.red(err.message))` and `process.exit(1)`. PASS
 
 ---
 
-## Cross-cutting — PASS
+## Task 6.3: Global Flags — PASS
 
-- **ESM consistency:** All new imports/exports follow the established pattern. PASS
-- **Test isolation:** Both test files mock `paths.js` to temp dirs, mock `global.fetch`, suppress console output. No real network or disk I/O outside temp. PASS
-- **Error messages:** User-friendly, no stack traces exposed. PASS
-- **Consistency with prior phases:** Update's download + write + track pattern mirrors install's. Search's vault iteration mirrors list's `--remote` mode. PASS
-- **No security issues:** No injection vectors, no secrets in code, auth delegated to existing `getAuthHeaders`/`downloadFile`. PASS
+**Context module (`context.js`):**
+- Singleton `_opts` object with getter-only access via `ctx`. Immutable except through `set()`.
+- `set()` accepts partial updates with `Boolean()` coercion — safe against truthy/falsy surprises.
+- `reset()` clears all flags — essential for test isolation.
+- `verbose()` writes to `process.stderr` with `[verbose]` prefix. Correct: keeps stdout clean for `--json` piping. PASS
+
+**Commander integration (`index.js`):**
+- `preAction` hook calls `ctx.set(program.opts())` before every command action. Global options propagated reliably without threading through arguments. Clean approach. PASS
+
+**`--json` flag:**
+- All commands emit JSON via `process.stdout.write(JSON.stringify(...) + '\n')`. Consistent format:
+  - `init`: `{ created: [], skipped: [] }`
+  - `install`: `{ status: 'installed'|'aborted', name, type, vault, version, path }`
+  - `remove`: `{ status: 'removed'|'not-installed', name }`
+  - `list`: Array of package objects
+  - `search`: Array of result objects with score
+  - `update`: `{ name, status, from?, to? }` or `{ updated, upToDate, errors }` for `--all`
+  - `vault add/remove/list/set-default/sync`: Each has appropriate JSON shape
+  - Errors: `{ error: message }` on stdout
+- Tested in `context.test.js` lines 146-257. Every JSON output is parsed and structure-validated. PASS
+
+**`--yes` flag:**
+- `install.js:80-81`: Auto-picks first vault on conflict when `ctx.yes` is true.
+- `install.js:107-108`: Auto-confirms overwrite when `ctx.yes` is true.
+- Verbose logging confirms the auto-confirm path. PASS
+
+**`--verbose` flag:**
+- `verbose()` calls sprinkled across install, remove, search, update, vault commands — logging fetch URLs, auth method, cache hits/misses, resolved packages, file paths.
+- Output goes to stderr, not stdout. Confirmed by test at `context.test.js:323-329`.
+- When verbose is off, no stderr output. Confirmed at `context.test.js:332-338`. PASS
 
 ---
 
-## Phase 1-4 Regression Check — PASS
+## Architecture (cumulative Phases 1-6) — PASS
 
-- All 119 prior tests pass unchanged across 12 test files. PASS
-- No modifications to previously reviewed source files (search.js and update.js were stubs, now implemented). PASS
+**Module dependency graph:** Clean unidirectional flow:
+```
+index.js → commands/* → utils/* → constants.js
+              ↓
+         context.js (singleton, no deps)
+         ui.js (ora only)
+```
+No circular dependencies. PASS
+
+**Error handling pattern:** Uniform across all 8 commands:
+1. `runX()` contains business logic, throws on errors
+2. Commander action wraps in `try/catch`
+3. JSON mode: `process.stdout.write(JSON.stringify({ error }))` + `process.exit(1)`
+4. Human mode: `console.error(chalk.red(err.message))` + `process.exit(1)`
+Consistent. PASS
+
+**Test isolation:** All test files mock `paths.js` to temp dirs, mock `global.fetch`, suppress `console.log`/`console.warn`/`process.stdout.write`. No real network calls. No cross-test contamination (verified by `ctx.reset()` in beforeEach). PASS
+
+**Noted but acceptable:**
+- Duplicated try/catch boilerplate in `vault.js` (6 identical patterns for 6 subcommands, lines 342-434). Not worth abstracting — each calls a different function signature. Minor repetition.
+- Duplicated ENOTFOUND/401/403/404 handling in `fetcher.js` and `registry.js`. Could extract a shared HTTP-error helper, but the messages differ slightly. Acceptable.
+
+---
+
+## Phase 1-5 Regression Check — PASS
+
+- All 148 prior tests pass unchanged across 14 test files. PASS
+- Existing command files were modified (added spinners, chalk, ctx checks, error handling) but all prior behavior preserved — confirmed by 0 test failures. PASS
+
+---
+
+## PLAN.md Verify Checklist
+
+- [x] All commands show spinners during network ops
+- [x] `plug install nonexistent` shows helpful error, not a stack trace
+- [x] `plug --json list` outputs valid JSON
+- [x] `plug --verbose install code-review` shows debug info
+- [x] Corrupt config.json is auto-repaired on next run
 
 ---
 
 ## Summary
 
-**All checks passed — 0 issues found.** Phase 5 delivers two commands:
+**All checks passed — 0 issues found.** Phase 6 delivers three tasks:
 
-- **search**: Four-tier relevance scoring (name exact/partial, description, tags), multi-vault support with graceful degradation on unavailable vaults, `--vault` and `--type` filters, sorted results with formatted output.
-- **update**: Semver comparison, single-package and `--all` modes, re-download on version bump with meta.json fallback, tracker persistence preserving install timestamps, per-package error isolation in batch mode.
+- **Spinners (6.1):** TTY-aware ora wrapper, spinners on every network operation, properly paired start/stop.
+- **Error handling (6.2):** All 7 error classes from PLAN.md implemented with exact message patterns. Corrupt files backed up and auto-repaired. Permission errors caught. Edge cases handled (remove non-existent, duplicate vault add).
+- **Global flags (6.3):** `--verbose` (stderr debug logs), `--json` (structured stdout for scripting), `--yes` (auto-confirm prompts). Context singleton propagated via Commander preAction hook.
 
-Test coverage is thorough: 29 new tests covering happy paths, error cases (vault not found, vault unavailable, network failure), edge cases (installed version newer than registry, empty install list, missing patch segments in semver), and multi-vault scenarios.
+857 lines added across 16 files. 172 tests passing with 0 regressions. Code is clean, consistent, and well-tested.
 
-The registry schema gained `tags` arrays on both packages — a non-breaking addition required for search functionality.
-
-Phase 5 is approved. Ready to proceed with Phase 6 (Polish & Error Handling).
+Phase 6 is approved. Ready for Phase 7 (Documentation).
