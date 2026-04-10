@@ -1,3 +1,8 @@
+[![CI](https://github.com/dsiddharth2/plug/actions/workflows/ci.yml/badge.svg)](https://github.com/dsiddharth2/plug/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-18%2B-brightgreen.svg)](https://nodejs.org)
+[![npm](https://img.shields.io/npm/v/plugvault.svg)](https://www.npmjs.com/package/plugvault)
+
 # PlugVault
 
 A package manager for Claude Code. Install reusable skills, commands, and agents into any project from GitHub-hosted registries.

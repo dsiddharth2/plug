@@ -120,32 +120,32 @@
       "phase": 5,
       "title": "GitHub Actions CI workflow",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "Created .github/workflows/ci.yml with name CI, push/PR triggers on main, ubuntu-latest job, node-version matrix [18, 20, 22], npm ci and npm test steps in plug/ working-directory."
     },
     {
       "id": "5.2",
       "phase": 5,
       "title": "README badges",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "Added 4 shields.io badges at top of root README.md: CI, License: MIT, Node.js 18+, npm (plugvault)."
     },
     {
       "id": "5.3",
       "phase": 5,
       "title": "LICENSE file",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "Created MIT LICENSE at repo root. Copyright 2026 Siddharth Deshpande."
     },
     {
       "id": "V5",
       "phase": 5,
       "title": "VERIFY Phase 5",
       "type": "verify",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "npm test passed: 186/186 tests (17 files). ci.yml is valid YAML. Badges use correct dsiddharth2/plug URLs. LICENSE file present with MIT license, 2026 copyright."
     }
   ]
 }
