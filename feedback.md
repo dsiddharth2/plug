@@ -1,65 +1,119 @@
-# agents-ci-badges — Phase 2 Code Review (Cumulative)
+# agents-ci-badges — Phase 3 Code Review (Cumulative: Phases 1-3)
 
 **Reviewer:** plug-reviewer
 **Date:** 2026-04-11
-**Scope:** Phase 2 (Tasks 2.1, 2.2, 2.3) + Phase 1 regression check
+**Scope:** Phase 3 (Tasks 3.1, 3.2) + Phase 1-2 regression check
 **Verdict:** APPROVED
 
 ---
 
-## Phase 1 Regression Check — PASS
+## Phase 1-2 Regression Check — PASS
 
-All Phase 1 code (constants.js, paths.js, init.js, install.js) reviewed and intact. No regressions detected. The init test mock fix from commit 98dee4f is still in place.
+All Phase 1 source files (constants.js, paths.js, init.js, install.js) and Phase 2 source files (update.js, remove.js, list.js, search.js) reviewed and intact. No regressions detected. All prior test assertions continue to pass.
 
-Test count increased from 172 (Phase 1 review) to 174 (17 test files) — the doer added 2 new tests as part of Phase 2 work (update.test.js and install.test.js mocks updated). All 174 tests pass.
-
----
-
-## Task 2.1 — Update command — PASS
-
-**`plug/src/commands/update.js`:**
-
-- Import changed from individual dir imports to `getClaudeDirForType` (line 7): `import { getClaudeDirForType, ensureDir } from '../utils/paths.js'`. Clean, matches the pattern established in install.js. PASS
-- Routing at line 137: `const destDir = getClaudeDirForType(type, isGlobal)` — replaces old ternary. PASS
-- Description at line 14: `'Update an installed skill, command, or agent to the latest version'` — mentions agents. PASS
-- `--all` option at line 15: `'update all installed skills, commands, and agents'` — mentions agents. PASS
-
-**Done-when check:**
-- `plug update` routes agent-type updates to `.claude/agents/`: YES (line 137 uses `getClaudeDirForType`)
-- Description mentions agents: YES (lines 14, 15)
-
-**Task 2.1: PASS**
+Previous observation (non-blocking): `install.js` line 16 description still reads `'Install a skill or command from a vault'` — does not mention agents. Remains a consistency gap but not a plan requirement.
 
 ---
 
-## Task 2.2 — Remove command — PASS
+## Task 3.1 — Unit tests for paths and routing — PASS
 
-**`plug/src/commands/remove.js`:**
+**`plug/tests/paths.test.js`:**
 
-- Description at line 9: `'Remove an installed skill, command, or agent'` — mentions agents. PASS
-- No routing change needed — remove uses `pkg.path` from installed.json (line 44: `await fs.unlink(pkg.path)`). Correct, the path is already set correctly at install time. PASS
+5 new tests added (lines 38-56), following the existing test pattern exactly:
+
+| # | Test | Assertion | Verdict |
+|---|------|-----------|---------|
+| 1 | `getClaudeAgentsDir()` local | Returns `cwd/.claude/agents` | PASS |
+| 2 | `getClaudeAgentsDir(true)` global | Returns `home/.claude/agents` | PASS |
+| 3 | `getClaudeDirForType('skill', false)` | Returns `cwd/.claude/skills` | PASS |
+| 4 | `getClaudeDirForType('agent', false)` | Returns `cwd/.claude/agents` | PASS |
+| 5 | `getClaudeDirForType('command', false)` | Returns `cwd/.claude/commands` | PASS |
+
+**Quality assessment:**
+- All 5 tests use `path.join()` for OS-portable path comparison — consistent with existing tests. PASS
+- Tests cover the new `getClaudeAgentsDir` function (both local and global) and the `getClaudeDirForType` router for all three types. PASS
+- No redundant tests — each tests a distinct function/parameter combination. PASS
+- Import at line 10 correctly imports `getClaudeAgentsDir` and `getClaudeDirForType`. PASS
 
 **Done-when check:**
-- Description string mentions agents: YES
+- 5 new test cases pass: YES
 
-**Task 2.2: PASS**
+**Task 3.1: PASS**
 
 ---
 
-## Task 2.3 — List and search commands — PASS
+## Task 3.2 — Command tests — PASS
 
-**`plug/src/commands/list.js`:**
-- `--type` option description at line 14: `'filter by type (skill, command, or agent)'`. PASS
+### install.test.js — 2 new tests (lines 269-304)
 
-**`plug/src/commands/search.js`:**
-- `--type` option description at line 12: `'filter by type (skill, command, or agent)'`. PASS
-- `printSearchResults` at line 133: `pkg.type === 'agent' ? chalk.yellow('[agent]')` — yellow `[agent]` label added to the ternary chain alongside existing skill (blue) and command (magenta) labels. PASS
+| Test | What it verifies | Verdict |
+|------|------------------|---------|
+| `installs an agent to .claude/agents/` | Agent pkg routes to `localAgentsDir`, file written, `trackInstall` called with `type: 'agent'` | PASS |
+| `displays agent usage message after installing an agent` | Console output contains `"The agent 'code-agent' is available for delegation"` | PASS |
+
+**Quality notes:**
+- `sampleAgentPkg` and `sampleAgentMeta` fixtures defined at lines 70-83 — clean, follows the existing `samplePkg`/`sampleSkillPkg` pattern. PASS
+- Mock at lines 25-31 correctly includes `getClaudeAgentsDir` and `getClaudeDirForType` alongside existing mocks. PASS
+- Agent routing test (line 269) verifies both file content AND `trackInstall` metadata — thorough. PASS
+- Usage message test (line 289) uses `console.log` spy to capture output — follows a reasonable pattern. The spy is properly restored via `consoleSpy.mockRestore()`. PASS
+
+### init.test.js — 1 new test (lines 96-105)
+
+| Test | What it verifies | Verdict |
+|------|------------------|---------|
+| `creates .claude/agents/ when skills and commands already exist` | Pre-creates skills+commands, runs init, asserts agents dir exists | PASS |
+
+**Quality notes:**
+- The existing first test (line 48) was also updated to verify `.claude/agents/` creation alongside skills/commands — this means init is tested both from scratch and incrementally. PASS
+- Mock at line 25 correctly includes `getClaudeAgentsDir`. PASS
+
+### update.test.js — 1 new test (lines 306-338)
+
+| Test | What it verifies | Verdict |
+|------|------------------|---------|
+| `updates agent-type package to .claude/agents/` | Agent update routes to agents dir, file content written, returns `status: 'updated'` | PASS |
+
+**Quality notes:**
+- `makeAgentRegistry` helper (lines 73-84) parallels existing `makeRegistry` — clean. PASS
+- Mock at line 31 adds `getClaudeDirForType` and `getClaudeAgentsDir` to the paths mock. PASS
+- Test verifies both the return value (`result.status`, `result.to`) AND the file on disk — thorough. PASS
+
+### search.test.js — 1 new test (lines 203-208)
+
+| Test | What it verifies | Verdict |
+|------|------------------|---------|
+| `filters by type=agent` | `runSearch('agent', { type: 'agent' })` returns only agent-type pkgs, including `code-agent` | PASS |
+
+**Quality notes:**
+- `sampleRegistry` at lines 43-64 was updated to include a `code-agent` entry — this also benefits the existing tests by ensuring agent pkgs don't leak into command/skill-only results. PASS
+- Test follows the exact pattern of the existing `type=command` and `type=skill` filter tests. PASS
+
+### list.test.js — 1 new test (lines 195-216)
+
+| Test | What it verifies | Verdict |
+|------|------------------|---------|
+| `lists agent-type packages and filters by --type agent` | Creates both command and agent in installed.json, filters by `type: 'agent'`, asserts agent shown and command excluded | PASS |
+
+**Quality notes:**
+- Test verifies both inclusion (`code-agent`) and exclusion (`code-review`) — good negative assertion. PASS
+- Follows the existing `filters by --type` test pattern. PASS
+
+### remove.test.js — 1 new test (lines 116-137)
+
+| Test | What it verifies | Verdict |
+|------|------------------|---------|
+| `removes an agent-type package and deletes the file` | Creates agent file in `.claude/agents/`, tracks in installed.json, removes, asserts file deleted and record gone | PASS |
+
+**Quality notes:**
+- Follows the exact pattern of the existing command remove test (lines 32-57). PASS
+- Verifies both file deletion AND installed.json cleanup. PASS
 
 **Done-when check:**
-- `--type agent` accepted by both commands: YES (both filter via `options.type` against `pkg.type`)
-- Search results display yellow `[agent]` label for agent-type packages: YES (line 133)
+- All ~7 new tests pass: YES (7 new tests pass)
+- Total test count is ~184: actual is 186 (174 existing + 12 new). Within expected range. PASS
+- Zero regressions: YES
 
-**Task 2.3: PASS**
+**Task 3.2: PASS**
 
 ---
 
@@ -67,17 +121,26 @@ Test count increased from 172 (Phase 1 review) to 174 (17 test files) — the do
 
 ```
 Test Files  17 passed (17)
-     Tests  174 passed (174)
+     Tests  186 passed (186)
   Duration  1.07s
 ```
 
-174/174 tests pass. Zero failures. Zero regressions from Phase 1 or existing tests.
+186/186 tests pass. Zero failures. Zero regressions on 174 existing tests. 12 new tests added (5 paths + 7 commands).
 
 ---
 
-## Observation (non-blocking)
+## Test Quality Assessment
 
-`install.js` line 16 description still reads `'Install a skill or command from a vault'` — does not mention agents. All other commands (update, remove, list, search) now mention agents in their descriptions. This is not a Phase 2 requirement (install description update wasn't in the plan), but it's a consistency gap. Recommend updating in a future task or as a quick fix.
+**No redundant tests:** Each of the 12 new tests covers a distinct aspect of agent support. No overlap between tests.
+
+**All meaningful assertions:** Every test makes substantive assertions:
+- Path tests verify exact path construction
+- Install tests verify file content, tracker metadata, AND console output
+- Update test verifies return value AND file content on disk
+- Remove test verifies file deletion AND tracker cleanup
+- Search/list tests verify both positive matches and negative exclusions
+
+**Coverage completeness:** All 6 commands that were modified for agent support (init, install, update, remove, list, search) have corresponding agent-specific tests. The path/routing infrastructure has dedicated unit tests.
 
 ---
 
@@ -85,10 +148,10 @@ Test Files  17 passed (17)
 
 | Task | Verdict |
 |------|---------|
-| 2.1 — Update command | PASS |
-| 2.2 — Remove command | PASS |
-| 2.3 — List and search commands | PASS |
+| 3.1 — Unit tests for paths and routing (5 tests) | PASS |
+| 3.2 — Command tests (7 tests) | PASS |
 | Phase 1 regression check | PASS |
-| Tests (174/174, 0 regressions) | PASS |
+| Phase 2 regression check | PASS |
+| Tests (186/186, 0 regressions) | PASS |
 
-**Phase 2 is APPROVED.** All three tasks meet their done-when criteria. No regressions in Phase 1 work. 174/174 tests pass. Ready for Phase 3 (tests).
+**Phase 3 is APPROVED.** All 12 new tests are meaningful, non-redundant, and pass. 186/186 total tests with zero regressions. Ready for Phase 4 (documentation).
