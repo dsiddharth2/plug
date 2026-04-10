@@ -25,7 +25,7 @@ vi.mock('../src/utils/paths.js', async (importOriginal) => {
   };
 });
 
-const sampleVault = { name: 'official', owner: 'plugvault', repo: 'plugvault', branch: 'main', private: false };
+const sampleVault = { name: 'official', owner: 'dsiddharth2', repo: 'plugvault', branch: 'main', private: false };
 
 const samplePkg = {
   name: 'code-review',

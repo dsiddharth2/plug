@@ -6,7 +6,7 @@ vi.mock('../src/utils/auth.js', () => ({
 
 const { downloadFile } = await import('../src/utils/fetcher.js');
 
-const sampleVault = { name: 'official', owner: 'plugvault', repo: 'plugvault', branch: 'main' };
+const sampleVault = { name: 'official', owner: 'dsiddharth2', repo: 'plugvault', branch: 'main' };
 
 describe('fetcher utils', () => {
   afterEach(() => {
@@ -54,7 +54,7 @@ describe('fetcher utils', () => {
     });
     await downloadFile(sampleVault, 'registry/file.md');
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://raw.githubusercontent.com/plugvault/plugvault/main/registry/file.md',
+      'https://raw.githubusercontent.com/dsiddharth2/plugvault/main/registry/file.md',
       expect.any(Object)
     );
   });

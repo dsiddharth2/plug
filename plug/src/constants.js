@@ -11,7 +11,7 @@ export const CACHE_DIR = 'cache';
 export const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export const OFFICIAL_VAULT_NAME = 'official';
-export const OFFICIAL_VAULT_OWNER = 'plugvault';
+export const OFFICIAL_VAULT_OWNER = 'dsiddharth2';
 export const OFFICIAL_VAULT_REPO = 'plugvault';
 
 export const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com';

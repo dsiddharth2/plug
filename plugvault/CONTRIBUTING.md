@@ -1,6 +1,6 @@
 # Contributing to plugvault Registry
 
-This document covers adding new skills and commands to the **official plugvault registry**. For a full explanation of the package format, see the [Skill Authoring Guide](https://github.com/plugvault/plug/blob/main/docs/authoring-guide.md).
+This document covers adding new skills and commands to the **official plugvault registry**. For a full explanation of the package format, see the [Skill Authoring Guide](https://github.com/dsiddharth2/plug/blob/main/docs/authoring-guide.md).
 
 ---
 
@@ -47,7 +47,7 @@ mkdir registry/my-package
 
 Create `registry/my-package/my-package.md` with your skill or command content.
 
-See the [authoring guide](https://github.com/plugvault/plug/blob/main/docs/authoring-guide.md) for templates and best practices.
+See the [authoring guide](https://github.com/dsiddharth2/plug/blob/main/docs/authoring-guide.md) for templates and best practices.
 
 ### 5. Register in registry.json
 

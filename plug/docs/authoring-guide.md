@@ -130,7 +130,7 @@ Good skills are:
 
 ### 1. Fork the vault repository
 
-Fork the vault you want to contribute to (e.g., `https://github.com/plugvault/plugvault`).
+Fork the vault you want to contribute to (e.g., `https://github.com/dsiddharth2/plugvault`).
 
 ### 2. Create the package files
 

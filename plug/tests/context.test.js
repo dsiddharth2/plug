@@ -50,7 +50,7 @@ const { runInstall } = await import('../src/commands/install.js');
 
 const officialVault = {
   name: 'official',
-  owner: 'plugvault',
+  owner: 'dsiddharth2',
   repo: 'plugvault',
   branch: 'main',
   private: false,

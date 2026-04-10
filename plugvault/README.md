@@ -1,6 +1,6 @@
 # plugvault — Official Registry
 
-The official vault of Claude skills and commands, installable via the [plugvault CLI](https://github.com/plugvault/plug).
+The official vault of Claude skills and commands, installable via the [plugvault CLI](https://github.com/dsiddharth2/plug).
 
 ```bash
 npm install -g plugvault

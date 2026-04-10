@@ -34,7 +34,7 @@ const { runSearch } = await import('../src/commands/search.js');
 
 const officialVault = {
   name: 'official',
-  owner: 'plugvault',
+  owner: 'dsiddharth2',
   repo: 'plugvault',
   branch: 'main',
   private: false,

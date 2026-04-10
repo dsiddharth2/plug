@@ -28,7 +28,7 @@ const sampleRegistry = {
   },
 };
 
-const sampleVault = { name: 'official', owner: 'plugvault', repo: 'plugvault', branch: 'main', private: false };
+const sampleVault = { name: 'official', owner: 'dsiddharth2', repo: 'plugvault', branch: 'main', private: false };
 
 describe('registry utils', () => {
   beforeEach(async () => {

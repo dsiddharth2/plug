@@ -9,7 +9,7 @@ Thank you for your interest in contributing. This document covers contributing t
 **Requirements:** Node.js 18+, npm
 
 ```bash
-git clone https://github.com/plugvault/plug
+git clone https://github.com/dsiddharth2/plug
 cd plug
 npm install
 npm test         # run all tests
