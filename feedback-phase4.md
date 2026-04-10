@@ -104,6 +104,34 @@ The one-line tagline at the top of both READMEs says "Install reusable skills an
 
 ---
 
+## Re-Review (2026-04-11)
+
+**Trigger:** Doer applied fix for broken root README links.
+
+### Verification
+
+1. **Root README links correct** — PASS
+   - `plug/docs/authoring-guide.md` (line 35) — file exists at that path
+   - `plug/CONTRIBUTING.md` (line 44) — file exists at that path
+   - Vault CONTRIBUTING link uses absolute GitHub URL (line 46) — correct
+
+2. **Root README is not a duplicate** — PASS
+   - Root README.md is now a distinct 53-line high-level overview
+   - plug/README.md remains the full 202-line CLI reference
+   - Content structure differs: root has Quick Start / Creating Packages / Contributing; plug/ has full command reference, flags, vaults, auth
+
+3. **Tests still pass** — PASS
+   - 186/186 tests passing (17 test files), zero regressions
+
+4. **Tagline updated** — PASS
+   - Root README line 3: "Install reusable skills, commands, and agents..." (agents now included)
+
+### Verdict: APPROVED
+
+All blocking issues resolved. Non-blocking suggestion also addressed.
+
+---
+
 ## Phase 1-4 Cumulative Status
 
 | Phase | Status | Notes |
@@ -111,4 +139,4 @@ The one-line tagline at the top of both READMEs says "Install reusable skills an
 | Phase 1: Core Infrastructure | APPROVED | Constants, paths, init, install all correct |
 | Phase 2: Remaining Commands | APPROVED | update, remove, list, search all correct |
 | Phase 3: Tests | APPROVED | 186/186 passing, zero regressions |
-| Phase 4: Documentation | **CHANGES NEEDED** | Broken links in root README |
+| Phase 4: Documentation | **APPROVED** | Fix verified — links correct, README deduplicated |
