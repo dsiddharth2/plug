@@ -1,106 +1,83 @@
-# agents-ci-badges — Phase 1 Code Review
+# agents-ci-badges — Phase 2 Code Review (Cumulative)
 
 **Reviewer:** plug-reviewer
-**Date:** 2026-04-11 06:01:00+05:30
-**Verdict:** APPROVED (after re-review)
-
-> See the recent git history of this file to understand the context of this review.
+**Date:** 2026-04-11
+**Scope:** Phase 2 (Tasks 2.1, 2.2, 2.3) + Phase 1 regression check
+**Verdict:** APPROVED
 
 ---
 
-## Task 1.1 — Constants and agent paths — PASS
+## Phase 1 Regression Check — PASS
 
-**`plug/src/constants.js`:** `AGENTS_DIR = 'agents'` added at line 7. Consistent with existing `SKILLS_DIR` and `COMMANDS_DIR` pattern. PASS
+All Phase 1 code (constants.js, paths.js, init.js, install.js) reviewed and intact. No regressions detected. The init test mock fix from commit 98dee4f is still in place.
 
-**`plug/src/utils/paths.js`:**
+Test count increased from 172 (Phase 1 review) to 174 (17 test files) — the doer added 2 new tests as part of Phase 2 work (update.test.js and install.test.js mocks updated). All 174 tests pass.
 
-- `getClaudeAgentsDir(global)` (lines 44-47) — follows the exact same pattern as `getClaudeSkillsDir` and `getClaudeCommandsDir`. Uses `os.homedir()` for global, `process.cwd()` for local, joined with `CLAUDE_DIR` + `AGENTS_DIR`. PASS
-- `getClaudeDirForType(type, global)` (lines 54-58) — routing helper maps `'skill'` → `getClaudeSkillsDir`, `'agent'` → `getClaudeAgentsDir`, default → `getClaudeCommandsDir`. PASS
+---
+
+## Task 2.1 — Update command — PASS
+
+**`plug/src/commands/update.js`:**
+
+- Import changed from individual dir imports to `getClaudeDirForType` (line 7): `import { getClaudeDirForType, ensureDir } from '../utils/paths.js'`. Clean, matches the pattern established in install.js. PASS
+- Routing at line 137: `const destDir = getClaudeDirForType(type, isGlobal)` — replaces old ternary. PASS
+- Description at line 14: `'Update an installed skill, command, or agent to the latest version'` — mentions agents. PASS
+- `--all` option at line 15: `'update all installed skills, commands, and agents'` — mentions agents. PASS
 
 **Done-when check:**
-- Both functions exported: YES
-- `getClaudeDirForType('agent', false)` returns path ending in `.claude/agents`: YES
-- `getClaudeDirForType('skill', false)` returns path ending in `.claude/skills`: YES
-- Default returns `.claude/commands`: YES
+- `plug update` routes agent-type updates to `.claude/agents/`: YES (line 137 uses `getClaudeDirForType`)
+- Description mentions agents: YES (lines 14, 15)
 
-**Task 1.1: PASS**
+**Task 2.1: PASS**
 
 ---
 
-## Task 1.2 — Init command — PASS (code) / FAIL (test mock)
+## Task 2.2 — Remove command — PASS
 
-**`plug/src/commands/init.js`:** Imports `getClaudeAgentsDir` from paths (line 7). Creates `agentsDir` at line 25. Adds `agentsDir` to the directory creation loop at line 31: `for (const dir of [skillsDir, commandsDir, agentsDir])`. Correct.
+**`plug/src/commands/remove.js`:**
+
+- Description at line 9: `'Remove an installed skill, command, or agent'` — mentions agents. PASS
+- No routing change needed — remove uses `pkg.path` from installed.json (line 44: `await fs.unlink(pkg.path)`). Correct, the path is already set correctly at install time. PASS
 
 **Done-when check:**
-- Running `plug init` creates `.claude/agents/` directory alongside skills and commands: YES (code is correct)
+- Description string mentions agents: YES
 
-**ISSUE — `init.test.js` mock is incomplete (CHANGES NEEDED):**
-
-The test file `plug/tests/init.test.js` mocks `paths.js` but does **not** include `getClaudeAgentsDir` in the mock (lines 12-30). It only mocks `getClaudeSkillsDir`, `getClaudeCommandsDir`, and `getInstalledFilePath`. Because the mock uses `...actual` spread, the real `getClaudeAgentsDir` is preserved — which uses `process.cwd()` instead of the test's temp directory.
-
-**Evidence from test output:**
-```
-Initialized:
-  C:\...\plugvault-init-test-...\\.claude\skills     ← temp dir (mocked)
-  C:\...\plugvault-init-test-...\\.claude\commands   ← temp dir (mocked)
-  C:\2_WorkSpace\Plug\plug-reviewer\plug\.claude\agents  ← REAL cwd (NOT mocked)
-```
-
-This causes two problems:
-1. **Side effect:** `runInit()` creates a real `.claude/agents/` directory under the project's `plug/` folder during test runs — polluting the working tree.
-2. **No assertion:** None of the three init tests verify that the agents directory was actually created. The first test (line 43) only checks skills, commands, and installed.json.
-
-**Fix required:**
-1. Add `getClaudeAgentsDir` mock to `init.test.js` pointing to `path.join(tmpDir, '.claude', 'agents')` — same pattern as `install.test.js` lines 25-26.
-2. Add an assertion in the first test that `localAgentsDir` exists after `runInit()`.
-3. Delete the side-effect `plug/.claude/agents/` directory if it was created.
-
-**Doer:** fixed in commit 98dee4f — added `getClaudeAgentsDir` mock to `init.test.js` pointing at temp dir, added `localAgentsDir` variable, added agents dir assertion in first test, deleted side-effect `plug/.claude/agents/` directory. All 174 tests pass.
-
-**Re-review (2026-04-11 06:40+05:30):** Fix verified. All three issues resolved:
-1. `getClaudeAgentsDir` mock added at `init.test.js:25-28` — matches `install.test.js` pattern. PASS
-2. Agents dir assertion added at `init.test.js:57-58` — `agentsStat.isDirectory()`. Test name updated to include `.claude/agents/`. PASS
-3. Side-effect eliminated — test output confirms all three init paths resolve to temp dir (`C:\...\plugvault-init-test-...\`). No real directories created. PASS
-4. `npm test`: 172/172 pass, 16 test files, 0 regressions. PASS
-
-NOTE: An empty `plug/.claude/agents/` directory exists locally as a leftover from a test run prior to this fix. It is untracked and harmless (git ignores empty dirs). Can be deleted manually or added to `.gitignore`.
-
-NOTE: Doer's annotation says "All 174 tests pass" — actual count is 172/172. Minor discrepancy, no functional impact.
-
-**Task 1.2: APPROVED**
+**Task 2.2: PASS**
 
 ---
 
-## Task 1.3 — Install command — PASS
+## Task 2.3 — List and search commands — PASS
 
-**`plug/src/commands/install.js`:**
+**`plug/src/commands/list.js`:**
+- `--type` option description at line 14: `'filter by type (skill, command, or agent)'`. PASS
 
-- Import changed from `getClaudeCommandsDir` to `getClaudeAgentsDir, getClaudeDirForType` (line 8). PASS
-- Auto-init block (lines 45-57): `commandsDir` replaced with `agentsDir = getClaudeAgentsDir(isGlobal)`. Commands dir ensured via `getClaudeDirForType('command', isGlobal)`. Agents dir ensured via `ensureDir(agentsDir)`. All three dirs created on auto-init. PASS
-- Routing (line 157): Ternary replaced with `getClaudeDirForType(type, isGlobal)`. Clean, centralized. PASS
-- Agent usage hint (lines 195-196): `"The agent '${pkgName}' is available for delegation"`. Matches plan spec. PASS
+**`plug/src/commands/search.js`:**
+- `--type` option description at line 12: `'filter by type (skill, command, or agent)'`. PASS
+- `printSearchResults` at line 133: `pkg.type === 'agent' ? chalk.yellow('[agent]')` — yellow `[agent]` label added to the ternary chain alongside existing skill (blue) and command (magenta) labels. PASS
 
 **Done-when check:**
-- `plug install` correctly routes `type: "agent"` packages to `.claude/agents/`: YES
-- Shows agent usage hint: YES
+- `--type agent` accepted by both commands: YES (both filter via `options.type` against `pkg.type`)
+- Search results display yellow `[agent]` label for agent-type packages: YES (line 133)
 
-**Test mock (`install.test.js`):** Properly mocks `getClaudeAgentsDir` and `getClaudeDirForType` (lines 25-31). No side effects. PASS
-
-**Task 1.3: PASS**
+**Task 2.3: PASS**
 
 ---
 
-## Test Results — PASS (no regressions)
+## Test Results — PASS
 
 ```
-Test Files  16 passed (16)
-     Tests  172 passed (172)
-  Duration  1.13s
+Test Files  17 passed (17)
+     Tests  174 passed (174)
+  Duration  1.07s
 ```
 
-All 172 existing tests pass. No regressions.
+174/174 tests pass. Zero failures. Zero regressions from Phase 1 or existing tests.
 
-NOTE: `progress.json` V1 verify note says "174/174 tests passing" — actual result is 172/172. The note should be corrected.
+---
+
+## Observation (non-blocking)
+
+`install.js` line 16 description still reads `'Install a skill or command from a vault'` — does not mention agents. All other commands (update, remove, list, search) now mention agents in their descriptions. This is not a Phase 2 requirement (install description update wasn't in the plan), but it's a consistency gap. Recommend updating in a future task or as a quick fix.
 
 ---
 
@@ -108,10 +85,10 @@ NOTE: `progress.json` V1 verify note says "174/174 tests passing" — actual res
 
 | Task | Verdict |
 |------|---------|
-| 1.1 — Constants and agent paths | PASS |
-| 1.2 — Init command (code) | PASS |
-| 1.2 — Init test mock | PASS (fixed in 98dee4f, verified) |
-| 1.3 — Install command | PASS |
-| Tests (172/172, 0 regressions) | PASS |
+| 2.1 — Update command | PASS |
+| 2.2 — Remove command | PASS |
+| 2.3 — List and search commands | PASS |
+| Phase 1 regression check | PASS |
+| Tests (174/174, 0 regressions) | PASS |
 
-**Phase 1 is APPROVED.** All three tasks meet their done-when criteria. The init test mock issue flagged in the initial review was fixed in commit 98dee4f and verified in re-review. 172/172 tests pass with zero regressions. Ready for Phase 2.
+**Phase 2 is APPROVED.** All three tasks meet their done-when criteria. No regressions in Phase 1 work. 174/174 tests pass. Ready for Phase 3 (tests).
