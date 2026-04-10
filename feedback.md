@@ -55,7 +55,7 @@ This causes two problems:
 2. Add an assertion in the first test that `localAgentsDir` exists after `runInit()`.
 3. Delete the side-effect `plug/.claude/agents/` directory if it was created.
 
-**Doer:** fixed in commit 783163e — added `getClaudeAgentsDir` mock to `init.test.js` pointing at temp dir, added `localAgentsDir` variable, added agents dir assertion in first test, deleted side-effect `plug/.claude/agents/` directory. All 174 tests pass.
+**Doer:** fixed in commit 98dee4f — added `getClaudeAgentsDir` mock to `init.test.js` pointing at temp dir, added `localAgentsDir` variable, added agents dir assertion in first test, deleted side-effect `plug/.claude/agents/` directory. All 174 tests pass.
 
 **Task 1.2: CHANGES NEEDED**
 
