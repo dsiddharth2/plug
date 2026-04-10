@@ -92,4 +92,15 @@ describe('plug init', () => {
     const installedStat = await fs.stat(localInstalledFile);
     expect(installedStat.isFile()).toBe(true);
   });
+
+  it('creates .claude/agents/ when skills and commands already exist', async () => {
+    // Pre-create skills and commands but not agents
+    await fs.mkdir(localSkillsDir, { recursive: true });
+    await fs.mkdir(localCommandsDir, { recursive: true });
+
+    await runInit();
+
+    const agentsStat = await fs.stat(localAgentsDir);
+    expect(agentsStat.isDirectory()).toBe(true);
+  });
 });

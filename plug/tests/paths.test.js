@@ -6,6 +6,8 @@ import {
   getGlobalDir,
   getClaudeSkillsDir,
   getClaudeCommandsDir,
+  getClaudeAgentsDir,
+  getClaudeDirForType,
   getInstalledFilePath,
   getConfigFilePath,
   getCacheDir,
@@ -31,6 +33,26 @@ describe('paths utils', () => {
 
   it('getClaudeCommandsDir global returns home/.claude/commands', () => {
     expect(getClaudeCommandsDir(true)).toBe(path.join(os.homedir(), '.claude', 'commands'));
+  });
+
+  it('getClaudeAgentsDir local returns cwd/.claude/agents', () => {
+    expect(getClaudeAgentsDir(false)).toBe(path.join(process.cwd(), '.claude', 'agents'));
+  });
+
+  it('getClaudeAgentsDir global returns home/.claude/agents', () => {
+    expect(getClaudeAgentsDir(true)).toBe(path.join(os.homedir(), '.claude', 'agents'));
+  });
+
+  it('getClaudeDirForType("skill", false) returns cwd/.claude/skills', () => {
+    expect(getClaudeDirForType('skill', false)).toBe(path.join(process.cwd(), '.claude', 'skills'));
+  });
+
+  it('getClaudeDirForType("agent", false) returns cwd/.claude/agents', () => {
+    expect(getClaudeDirForType('agent', false)).toBe(path.join(process.cwd(), '.claude', 'agents'));
+  });
+
+  it('getClaudeDirForType("command", false) returns cwd/.claude/commands', () => {
+    expect(getClaudeDirForType('command', false)).toBe(path.join(process.cwd(), '.claude', 'commands'));
   });
 
   it('getInstalledFilePath local returns cwd/.plugvault/installed.json', () => {

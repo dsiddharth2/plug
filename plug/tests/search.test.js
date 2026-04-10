@@ -54,6 +54,12 @@ const sampleRegistry = {
       description: 'Enforces consistent API design patterns',
       tags: ['api', 'rest', 'design', 'patterns'],
     },
+    'code-agent': {
+      type: 'agent',
+      version: '1.0.0',
+      description: 'Autonomous coding agent for delegation',
+      tags: ['agent', 'autonomous'],
+    },
   },
 };
 
@@ -192,6 +198,13 @@ describe('runSearch — --type filter', () => {
     mockFetchOk();
     const results = await runSearch('code-review', { type: 'skill' });
     expect(results).toHaveLength(0);
+  });
+
+  it('filters by type=agent', async () => {
+    mockFetchOk();
+    const results = await runSearch('agent', { type: 'agent' });
+    expect(results.every((r) => r.pkg.type === 'agent')).toBe(true);
+    expect(results.some((r) => r.name === 'code-agent')).toBe(true);
   });
 });
 

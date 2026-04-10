@@ -72,24 +72,24 @@
       "phase": 3,
       "title": "Unit tests for paths and routing",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "Added 5 new tests in paths.test.js: getClaudeAgentsDir local, getClaudeAgentsDir global, getClaudeDirForType skill, getClaudeDirForType agent, getClaudeDirForType command."
     },
     {
       "id": "3.2",
       "phase": 3,
       "title": "Command tests",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "Added 7 tests: install.test.js (2 — agent routes to .claude/agents/, agent usage message), init.test.js (1 — agents dir created when skills+commands exist), update.test.js (1 — agent update routes to .claude/agents/), search.test.js (1 — --type agent filter), list.test.js (1 — agent in list and --type agent filter), remove.test.js (1 — removing agent-type package)."
     },
     {
       "id": "V3",
       "phase": 3,
       "title": "VERIFY Phase 3",
       "type": "verify",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "npm test passed: 186/186 tests passing (17 test files). 12 new tests added (5 paths + 7 command). Zero regressions on 174 existing tests."
     },
     {
       "id": "4.1",

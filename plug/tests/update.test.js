@@ -69,6 +69,20 @@ function makeRegistry(version = '1.2.0') {
   };
 }
 
+function makeAgentRegistry(version = '1.2.0') {
+  return {
+    packages: {
+      'code-agent': {
+        type: 'agent',
+        version,
+        path: 'registry/code-agent',
+        description: 'Coding agent',
+        tags: ['agent'],
+      },
+    },
+  };
+}
+
 async function writeConfig(config) {
   await fs.mkdir(path.dirname(configPath), { recursive: true });
   await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
@@ -287,6 +301,40 @@ describe('runUpdate', () => {
     await runUpdate('code-review');
     const fileContent = await fs.readFile(path.join(commandsDir, 'code-review.md'), 'utf8');
     expect(fileContent).toBe('# updated code review v1.1.0');
+  });
+
+  it('updates agent-type package to .claude/agents/', async () => {
+    await writeInstalled({
+      installed: {
+        'code-agent': {
+          type: 'agent',
+          vault: 'official',
+          version: '1.0.0',
+          path: path.join(agentsDir, 'code-agent.md'),
+        },
+      },
+    });
+
+    global.fetch = vi.fn().mockImplementation((url) => {
+      if (url.includes('registry.json')) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => makeAgentRegistry('1.2.0') });
+      }
+      if (url.includes('meta.json')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ type: 'agent', entry: 'code-agent.md', version: '1.2.0' }),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200, text: async () => '# updated code-agent v1.2.0' });
+    });
+
+    const result = await runUpdate('code-agent');
+    expect(result.status).toBe('updated');
+    expect(result.to).toBe('1.2.0');
+
+    const fileContent = await fs.readFile(path.join(agentsDir, 'code-agent.md'), 'utf8');
+    expect(fileContent).toBe('# updated code-agent v1.2.0');
   });
 
 });

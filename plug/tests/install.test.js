@@ -67,6 +67,21 @@ const sampleSkillMeta = {
   entry: 'api-patterns.md',
 };
 
+const sampleAgentPkg = {
+  name: 'code-agent',
+  type: 'agent',
+  version: '1.0.0',
+  path: 'registry/code-agent',
+  description: 'An autonomous coding agent',
+};
+
+const sampleAgentMeta = {
+  name: 'code-agent',
+  type: 'agent',
+  version: '1.0.0',
+  entry: 'code-agent.md',
+};
+
 vi.mock('../src/utils/registry.js', () => ({
   findPackage: vi.fn(),
   findAllPackages: vi.fn(),
@@ -249,6 +264,43 @@ describe('plug install', () => {
 
     const stat = await fs.stat(localCommandsDir);
     expect(stat.isDirectory()).toBe(true);
+  });
+
+  it('installs an agent to .claude/agents/', async () => {
+    findAllPackages.mockResolvedValue([{ pkg: sampleAgentPkg, vault: sampleVault }]);
+    downloadFile
+      .mockReset()
+      .mockResolvedValueOnce(JSON.stringify(sampleAgentMeta))
+      .mockResolvedValueOnce('# code-agent content');
+
+    await runInstall('code-agent', {});
+
+    const destPath = path.join(localAgentsDir, 'code-agent.md');
+    const content = await fs.readFile(destPath, 'utf8');
+    expect(content).toBe('# code-agent content');
+
+    expect(trackInstall).toHaveBeenCalledWith(
+      'code-agent',
+      expect.objectContaining({ type: 'agent', vault: 'official' }),
+      false,
+    );
+  });
+
+  it('displays agent usage message after installing an agent', async () => {
+    findAllPackages.mockResolvedValue([{ pkg: sampleAgentPkg, vault: sampleVault }]);
+    downloadFile
+      .mockReset()
+      .mockResolvedValueOnce(JSON.stringify(sampleAgentMeta))
+      .mockResolvedValueOnce('# code-agent content');
+
+    const output = [];
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation((...args) => output.push(args.join(' ')));
+
+    await runInstall('code-agent', {});
+    consoleSpy.mockRestore();
+
+    const allOutput = output.join('\n');
+    expect(allOutput).toContain("The agent 'code-agent' is available for delegation");
   });
 
 });
