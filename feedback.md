@@ -2,7 +2,7 @@
 
 **Reviewer:** plug-reviewer
 **Date:** 2026-04-11 06:01:00+05:30
-**Verdict:** CHANGES NEEDED
+**Verdict:** APPROVED (after re-review)
 
 > See the recent git history of this file to understand the context of this review.
 
@@ -57,7 +57,17 @@ This causes two problems:
 
 **Doer:** fixed in commit 98dee4f — added `getClaudeAgentsDir` mock to `init.test.js` pointing at temp dir, added `localAgentsDir` variable, added agents dir assertion in first test, deleted side-effect `plug/.claude/agents/` directory. All 174 tests pass.
 
-**Task 1.2: CHANGES NEEDED**
+**Re-review (2026-04-11 06:40+05:30):** Fix verified. All three issues resolved:
+1. `getClaudeAgentsDir` mock added at `init.test.js:25-28` — matches `install.test.js` pattern. PASS
+2. Agents dir assertion added at `init.test.js:57-58` — `agentsStat.isDirectory()`. Test name updated to include `.claude/agents/`. PASS
+3. Side-effect eliminated — test output confirms all three init paths resolve to temp dir (`C:\...\plugvault-init-test-...\`). No real directories created. PASS
+4. `npm test`: 172/172 pass, 16 test files, 0 regressions. PASS
+
+NOTE: An empty `plug/.claude/agents/` directory exists locally as a leftover from a test run prior to this fix. It is untracked and harmless (git ignores empty dirs). Can be deleted manually or added to `.gitignore`.
+
+NOTE: Doer's annotation says "All 174 tests pass" — actual count is 172/172. Minor discrepancy, no functional impact.
+
+**Task 1.2: APPROVED**
 
 ---
 
@@ -100,10 +110,8 @@ NOTE: `progress.json` V1 verify note says "174/174 tests passing" — actual res
 |------|---------|
 | 1.1 — Constants and agent paths | PASS |
 | 1.2 — Init command (code) | PASS |
-| 1.2 — Init test mock | **CHANGES NEEDED** |
+| 1.2 — Init test mock | PASS (fixed in 98dee4f, verified) |
 | 1.3 — Install command | PASS |
 | Tests (172/172, 0 regressions) | PASS |
 
-**One fix required before Phase 1 can close:**
-
-`plug/tests/init.test.js` must mock `getClaudeAgentsDir` to use the temp directory (matching how `install.test.js` already does it), and add an assertion that `.claude/agents/` is created by `runInit()`. The missing mock causes a real directory to be created under `plug/` during test runs.
+**Phase 1 is APPROVED.** All three tasks meet their done-when criteria. The init test mock issue flagged in the initial review was fixed in commit 98dee4f and verified in re-review. 172/172 tests pass with zero regressions. Ready for Phase 2.
