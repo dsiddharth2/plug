@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import {
   getClaudeSkillsDir,
   getClaudeCommandsDir,
+  getClaudeAgentsDir,
   getInstalledFilePath,
   ensureDir,
 } from '../utils/paths.js';
@@ -21,12 +22,13 @@ async function pathExists(p) {
 export async function runInit() {
   const skillsDir = getClaudeSkillsDir(false);
   const commandsDir = getClaudeCommandsDir(false);
+  const agentsDir = getClaudeAgentsDir(false);
   const installedFile = getInstalledFilePath(false);
 
   const created = [];
   const skipped = [];
 
-  for (const dir of [skillsDir, commandsDir]) {
+  for (const dir of [skillsDir, commandsDir, agentsDir]) {
     if (await pathExists(dir)) {
       skipped.push(dir);
     } else {

@@ -5,7 +5,7 @@ import { confirm, select } from '@inquirer/prompts';
 import { findPackage, findAllPackages } from '../utils/registry.js';
 import { downloadFile } from '../utils/fetcher.js';
 import { trackInstall, isInstalled } from '../utils/tracker.js';
-import { getClaudeSkillsDir, getClaudeCommandsDir, ensureDir } from '../utils/paths.js';
+import { getClaudeSkillsDir, getClaudeAgentsDir, getClaudeDirForType, ensureDir } from '../utils/paths.js';
 import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
 
@@ -42,7 +42,7 @@ export async function runInstall(name, options = {}) {
 
   // Auto-init if .claude/ directories don't exist
   const skillsDir = getClaudeSkillsDir(isGlobal);
-  const commandsDir = getClaudeCommandsDir(isGlobal);
+  const agentsDir = getClaudeAgentsDir(isGlobal);
   let skillsDirExists = false;
   try {
     await fs.access(skillsDir);
@@ -53,7 +53,8 @@ export async function runInstall(name, options = {}) {
   if (!skillsDirExists) {
     verbose('Auto-initializing .claude/ directories');
     await ensureDir(skillsDir);
-    await ensureDir(commandsDir);
+    await ensureDir(getClaudeDirForType('command', isGlobal));
+    await ensureDir(agentsDir);
   }
 
   // Resolve package — with conflict detection if no vault prefix
@@ -153,7 +154,7 @@ export async function runInstall(name, options = {}) {
   // Route to correct directory by type
   const entryFile = meta.entry || `${pkgName}.md`;
   const type = meta.type || pkg.type || 'command';
-  const destDir = type === 'skill' ? getClaudeSkillsDir(isGlobal) : getClaudeCommandsDir(isGlobal);
+  const destDir = getClaudeDirForType(type, isGlobal);
   await ensureDir(destDir);
   const destPath = path.join(destDir, entryFile);
 
@@ -192,6 +193,8 @@ export async function runInstall(name, options = {}) {
     console.log(chalk.cyan(`  Path: ${destPath}`));
     if (type === 'skill') {
       console.log(chalk.cyan(`  Usage: The skill '${pkgName}' is available in your Claude project`));
+    } else if (type === 'agent') {
+      console.log(chalk.cyan(`  Usage: The agent '${pkgName}' is available for delegation`));
     } else {
       console.log(chalk.cyan(`  Usage: /${pkgName}`));
     }

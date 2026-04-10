@@ -11,6 +11,9 @@ const globalCommandsDir = path.join(tmpDir, 'global', '.claude', 'commands');
 const localInstalledFile = path.join(tmpDir, '.plugvault', 'installed.json');
 const globalInstalledFile = path.join(tmpDir, 'global', '.plugvault', 'installed.json');
 
+const localAgentsDir = path.join(tmpDir, '.claude', 'agents');
+const globalAgentsDir = path.join(tmpDir, 'global', '.claude', 'agents');
+
 vi.mock('../src/utils/paths.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -19,6 +22,13 @@ vi.mock('../src/utils/paths.js', async (importOriginal) => {
       global ? globalSkillsDir : localSkillsDir,
     getClaudeCommandsDir: (global = false) =>
       global ? globalCommandsDir : localCommandsDir,
+    getClaudeAgentsDir: (global = false) =>
+      global ? globalAgentsDir : localAgentsDir,
+    getClaudeDirForType: (type, global = false) => {
+      if (type === 'skill') return global ? globalSkillsDir : localSkillsDir;
+      if (type === 'agent') return global ? globalAgentsDir : localAgentsDir;
+      return global ? globalCommandsDir : localCommandsDir;
+    },
     getInstalledFilePath: (global = false) =>
       global ? globalInstalledFile : localInstalledFile,
     ensureDir: actual.ensureDir,
