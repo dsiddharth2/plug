@@ -96,24 +96,24 @@
       "phase": 4,
       "title": "Authoring guide and plug README",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "authoring-guide.md: added agent row to type table, agent template section, updated meta.json type field and verify step. plug/README.md: added agents to intro, updated init description, added --type agent to list and search examples, updated 'How it works' directory tree."
     },
     {
       "id": "4.2",
       "phase": 4,
       "title": "Root README",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "Root README.md: added agents bullet to 'What is this?' section, updated init description, added --type agent to list/search examples, updated 'How it works' directory tree."
     },
     {
       "id": "V4",
       "phase": 4,
       "title": "VERIFY Phase 4",
       "type": "verify",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "npm test passed: 186/186 tests (17 files). Docs reviewed: agent type consistently described in authoring-guide.md, plug/README.md, and root README.md. No broken links, no stale references."
     },
     {
       "id": "5.1",

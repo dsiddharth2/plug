@@ -1,21 +1,24 @@
 # Skill Authoring Guide
 
-This guide explains how to create your own skills and commands for plugvault, and how to publish them to a vault.
+This guide explains how to create your own skills, commands, and agents for plugvault, and how to publish them to a vault.
 
 ---
 
-## Skills vs. Commands
+## Skills vs. Commands vs. Agents
 
-plugvault supports two package types:
+plugvault supports three package types:
 
 | Type | File location | How Claude uses it |
 |------|---------------|--------------------|
 | **command** | `.claude/commands/` | Invoked with `/command-name` |
 | **skill** | `.claude/skills/` | Loaded automatically as project context |
+| **agent** | `.claude/agents/` | Delegated to via the `Agent` tool |
 
 **Commands** are best for discrete, on-demand tasks — code reviews, formatting checks, documentation generation. The user triggers them explicitly.
 
 **Skills** are best for always-on guidance — coding conventions, API patterns, architecture rules. Claude reads them as background context for every interaction in the project.
+
+**Agents** are best for specialized sub-tasks that can be delegated — background research, long-running analysis, parallel workstreams. Claude spawns them via the `Agent` tool and they run with their own context.
 
 ---
 
@@ -53,7 +56,7 @@ The `.md` file name must match the `entry` field in `meta.json`.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | yes | Package identifier. Must be lowercase, hyphens only, no spaces. Must match the directory name and the `entry` filename (without extension). |
-| `type` | string | yes | `"skill"` or `"command"` |
+| `type` | string | yes | `"skill"`, `"command"`, or `"agent"` |
 | `version` | string | yes | Semantic version string: `"MAJOR.MINOR.PATCH"` |
 | `description` | string | yes | Short description (shown in `plug search` and `plug list --remote`) |
 | `author` | string | no | GitHub username or display name |
@@ -124,6 +127,38 @@ Good skills are:
 - **Concise** — Claude reads these as context; shorter is faster
 - **Project-agnostic** — skills are shared across projects; avoid hardcoding project-specific details
 
+### Agent template
+
+Agents are spawned by Claude via the `Agent` tool. Write them as a focused system prompt that defines the agent's role, capabilities, and output contract.
+
+```markdown
+# Agent Name
+
+One sentence describing what this agent specializes in and when to use it.
+
+## Role
+
+Describe the agent's persona and area of expertise.
+
+## Inputs
+
+List what information the agent expects to receive when spawned.
+
+## Process
+
+1. Step 1: ...
+2. Step 2: ...
+
+## Output
+
+Describe the exact format the agent should return to the caller.
+```
+
+Good agents are:
+- **Focused** — they do one thing well; narrow scope beats broad ambition
+- **Self-contained** — agents run with isolated context; never assume the caller's state
+- **Clear on outputs** — the spawning Claude needs to know exactly what it will receive back
+
 ---
 
 ## Adding a Package to a Vault
@@ -186,7 +221,7 @@ plug vault sync
 plug install my-fork/my-package
 ```
 
-Verify the installed file appears in `.claude/commands/` (for commands) or `.claude/skills/` (for skills).
+Verify the installed file appears in `.claude/commands/` (for commands), `.claude/skills/` (for skills), or `.claude/agents/` (for agents).
 
 ### 5. Open a pull request
 

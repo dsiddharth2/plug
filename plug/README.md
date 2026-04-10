@@ -10,10 +10,11 @@ plug install code-review
 
 ## What is this?
 
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) supports two types of extensions:
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) supports three types of extensions:
 
 - **Skills** (`.claude/skills/*.md`) — background context that shapes how Claude works in your project. Think coding standards, API patterns, architecture rules.
 - **Commands** (`.claude/commands/*.md`) — on-demand actions you invoke with `/command-name`. Think code review, test generation, documentation.
+- **Agents** (`.claude/agents/*.md`) — specialized sub-agents that Claude can delegate tasks to via the `Agent` tool. Think background research, long-running analysis, parallel workstreams.
 
 These are just markdown files. `plug` makes it easy to share, discover, and install them across projects — like npm, but for `.md` files.
 
@@ -48,7 +49,7 @@ plug install code-review
 
 ### `plug init`
 
-Creates `.claude/skills/`, `.claude/commands/`, and `.plugvault/installed.json` in the current directory. Safe to re-run.
+Creates `.claude/skills/`, `.claude/commands/`, `.claude/agents/`, and `.plugvault/installed.json` in the current directory. Safe to re-run.
 
 ### `plug install <name>`
 
@@ -73,6 +74,7 @@ plug remove -g code-review            # remove a global install
 plug list                             # installed packages
 plug list --remote                    # everything available across vaults
 plug list --remote --type skill       # filter by type
+plug list --remote --type agent       # filter by type
 plug list --remote --vault official   # filter by vault
 ```
 
@@ -81,6 +83,7 @@ plug list --remote --vault official   # filter by vault
 ```bash
 plug search review
 plug search api --type skill
+plug search assistant --type agent
 plug search design --vault official
 ```
 
@@ -160,6 +163,7 @@ Token resolution: `PLUGVAULT_TOKEN_{VAULT_NAME}` > `PLUGVAULT_GITHUB_TOKEN` > co
   .claude/
     commands/          # installed commands
     skills/            # installed skills
+    agents/            # installed agents
 ```
 
 `plug install` fetches `registry.json` from the vault, looks up the package, downloads its `meta.json` and `.md` file, and places the `.md` in the right directory. Package metadata is tracked in `installed.json` for updates and removal.
