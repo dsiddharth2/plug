@@ -85,6 +85,25 @@ The one-line tagline at the top of both READMEs says "Install reusable skills an
 
 ---
 
+## FIX APPLIED (2026-04-11)
+
+**Issue:** Root README.md was a byte-for-byte duplicate of plug/README.md, with relative links broken at the repo root level.
+
+**Solution:** Redesigned root README.md as a distinct high-level overview file:
+- Changed tagline to include agents: "Install reusable skills, commands, and agents..."
+- Removed duplicate detailed content (CLI commands, flags, vaults, auth)
+- Added "Quick Start" that directs to plug/README.md for full CLI docs
+- Restructured into 4 focused sections: What, Quick Start, Creating Packages, Contributing
+- Fixed broken links:
+  - `docs/authoring-guide.md` → `plug/docs/authoring-guide.md` (lines 38)
+  - `CONTRIBUTING.md` → `plug/CONTRIBUTING.md` (line 42)
+  - Vault CONTRIBUTING link → absolute GitHub URL (line 44)
+- Root README now serves as an entry point; CLI docs live in plug/README.md
+
+**Result:** No broken links from repo root. Root README is now a distinct, focused overview rather than a duplicate.
+
+---
+
 ## Phase 1-4 Cumulative Status
 
 | Phase | Status | Notes |
