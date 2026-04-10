@@ -9,7 +9,7 @@ export function registerSearch(program) {
     .command('search <keyword>')
     .description('Search across all vaults by name, description, or tags')
     .option('--vault <name>', 'search in a specific vault only')
-    .option('--type <type>', 'filter by type (skill or command)')
+    .option('--type <type>', 'filter by type (skill, command, or agent)')
     .action(async (keyword, options) => {
       try {
         const results = await runSearch(keyword, options);
@@ -130,7 +130,7 @@ function printSearchResults(results, keyword) {
   console.log(chalk.bold(`\nSearch results for "${keyword}" (${results.length} found):\n`));
 
   for (const { name, pkg, vault } of results) {
-    const typeLabel = pkg.type === 'skill' ? chalk.blue('[skill]') : chalk.magenta('[command]');
+    const typeLabel = pkg.type === 'skill' ? chalk.blue('[skill]') : pkg.type === 'agent' ? chalk.yellow('[agent]') : chalk.magenta('[command]');
     const vaultLabel = chalk.dim(`vault:${vault.name}`);
     const version = chalk.dim(`v${pkg.version || '?'}`);
     console.log(`  ${chalk.green(name)} ${typeLabel} ${version} ${vaultLabel}`);

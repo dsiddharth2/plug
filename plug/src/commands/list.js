@@ -11,7 +11,7 @@ export function registerList(program) {
     .description('List installed skills and commands')
     .option('--remote', 'list all available packages across all vaults')
     .option('--vault <name>', 'filter by vault name')
-    .option('--type <type>', 'filter by type (skill or command)')
+    .option('--type <type>', 'filter by type (skill, command, or agent)')
     .action(async (options) => {
       try {
         await runList(options);

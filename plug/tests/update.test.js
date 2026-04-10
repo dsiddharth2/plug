@@ -15,6 +15,8 @@ const claudeDir = path.join(tmpDir, '.claude');
 const commandsDir = path.join(claudeDir, 'commands');
 const skillsDir = path.join(claudeDir, 'skills');
 
+const agentsDir = path.join(claudeDir, 'agents');
+
 vi.mock('../src/utils/paths.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -25,6 +27,12 @@ vi.mock('../src/utils/paths.js', async (importOriginal) => {
     getInstalledFilePath: () => installedPath,
     getClaudeCommandsDir: () => commandsDir,
     getClaudeSkillsDir: () => skillsDir,
+    getClaudeAgentsDir: () => agentsDir,
+    getClaudeDirForType: (type) => {
+      if (type === 'skill') return skillsDir;
+      if (type === 'agent') return agentsDir;
+      return commandsDir;
+    },
     ensureDir: actual.ensureDir,
   };
 });
@@ -101,6 +109,7 @@ beforeEach(async () => {
   await fs.mkdir(cacheDir, { recursive: true });
   await fs.mkdir(commandsDir, { recursive: true });
   await fs.mkdir(skillsDir, { recursive: true });
+  await fs.mkdir(agentsDir, { recursive: true });
   await writeConfig({
     vaults: { official: officialVault },
     resolve_order: ['official'],

@@ -40,32 +40,32 @@
       "phase": 2,
       "title": "Update command",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "Replaced getClaudeSkillsDir/getClaudeCommandsDir import with getClaudeDirForType. Replaced routing ternary with getClaudeDirForType(type, isGlobal). Updated description to mention agents."
     },
     {
       "id": "2.2",
       "phase": 2,
       "title": "Remove command",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "Updated description to include agent."
     },
     {
       "id": "2.3",
       "phase": 2,
       "title": "List and search commands",
       "type": "work",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "Updated --type option description in list.js and search.js to include agent. Added chalk.yellow('[agent]') label in printSearchResults."
     },
     {
       "id": "V2",
       "phase": 2,
       "title": "VERIFY Phase 2",
       "type": "verify",
-      "status": "pending",
-      "notes": ""
+      "status": "completed",
+      "notes": "npm test passed: 174/174 tests passing (17 test files). No regressions. update.test.js mock updated to include getClaudeDirForType and getClaudeAgentsDir."
     },
     {
       "id": "3.1",
