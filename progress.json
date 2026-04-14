@@ -13,9 +13,9 @@
     { "id": "2.V", "phase": 2, "title": "VERIFY: Phase 2 — Reference Files", "type": "verify", "status": "completed", "notes": "Phase 2 APPROVED by PM. Proceeding to Phase 3." },
     { "id": "3.1", "phase": 3, "title": "Create install.sh bootstrap script", "type": "task", "status": "completed", "notes": "Created plug/skill/install.sh (creates dirs, copies SKILL.md + references/*.md + plug-command.md, warns on overwrite, reports installed files) and plug/skill/uninstall.sh (removes files, cleans empty dirs). Both chmod +x. POSIX-compatible." },
     { "id": "3.2", "phase": 3, "title": "Install locally and verify", "type": "task", "status": "completed", "notes": "Ran bash plug/skill/install.sh successfully. 6 files installed: ~/.claude/skills/plug/SKILL.md, ~/.claude/skills/plug/references/{config-schema,install,search-and-list,vault-management}.md, ~/.claude/commands/plug.md. Verified via Glob." },
-    { "id": "3.V", "phase": 3, "title": "VERIFY: Phase 3 — Bootstrap + Distribution", "type": "verify", "status": "pending", "notes": "" },
-    { "id": "4.1", "phase": 4, "title": "Update plug README", "type": "task", "status": "pending", "notes": "" },
-    { "id": "4.2", "phase": 4, "title": "Update root README", "type": "task", "status": "pending", "notes": "" },
+    { "id": "3.V", "phase": 3, "title": "VERIFY: Phase 3 — Bootstrap + Distribution", "type": "verify", "status": "completed", "notes": "Phase 3 APPROVED by PM. Proceeding to Phase 4." },
+    { "id": "4.1", "phase": 4, "title": "Update plug README", "type": "task", "status": "completed", "notes": "Added 'Skill Installation (Recommended)' section before CLI section: bootstrap one-liner, /plug command description, natural language entry point, How It Works section. Renamed npm section to 'CLI Installation (Legacy/CI)'." },
+    { "id": "4.2", "phase": 4, "title": "Update root README", "type": "task", "status": "completed", "notes": "Updated Quick Start to show skill installation first with bootstrap one-liner and /plug command mention. CLI kept as alternative method." },
     { "id": "4.V", "phase": 4, "title": "VERIFY: Phase 4 — Documentation", "type": "verify", "status": "pending", "notes": "" }
   ]
 }
