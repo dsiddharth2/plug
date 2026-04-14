@@ -8,7 +8,7 @@
 
 ---
 
-### Verdict: CHANGES NEEDED
+### Verdict: ~~CHANGES NEEDED~~ → APPROVED (re-review 2026-04-14)
 
 ---
 
@@ -87,3 +87,24 @@
 **Cross-references** between files are correct. SKILL.md points to `references/` paths that match the actual filenames, and plug-command.md correctly references SKILL.md sections and reference file paths.
 
 Recommend addressing the 2 HIGH findings before merging. MEDIUM findings are quality improvements that strengthen the deliverable. LOW findings are polish.
+
+---
+
+## Re-Review (2026-04-14)
+
+**All 8 findings verified as fixed.** Checking each against the updated files:
+
+| # | Severity | Finding | Status | Verification |
+|---|----------|---------|--------|-------------|
+| 1 | HIGH | SKILL.md word count | FIXED | File expanded to 7 sections, 294 lines. Sections 3, 4, 5b, 6 all substantially expanded. New Section 7 (semver) added. |
+| 2 | HIGH | Fetch pattern HTTP codes | FIXED | Section 4.2 uses `curl -s -o /tmp/plug_response -w '%{http_code}'`. Section 4.3 has full error table branching on 200/404/401/403/other-4xx/000/5xx. |
+| 3 | MEDIUM | Browse "Other" option | FIXED | Browse Step 4 now includes `label: "Other"` with follow-up chat instruction (plug-command.md lines 124–130). |
+| 4 | MEDIUM | Semver comparison | FIXED | SKILL.md Section 7 has `compare_versions()` bash helper. plug-command.md Step 4a references Section 7 explicitly. |
+| 5 | MEDIUM | Vault routing ellipsis | FIXED | Routing table now reads `vault add/remove/list/set-default/set-token/sync` (SKILL.md line 45). |
+| 6 | LOW | registry.json version semantics | FIXED | Inline comment expanded with version guidance and warning instruction (config-schema.md lines 144–147). |
+| 7 | LOW | Search "Other" handling | FIXED | Explicit instruction: "Output the prompt as a chat message... Do not use AskUserQuestion for free-text input." (plug-command.md line 197). |
+| 8 | LOW | "Done" option handling | FIXED | Added: "If 'Done' selected: stop — return to conversation. No further output needed." (plug-command.md line 298). |
+
+### Re-Review Verdict: APPROVED
+
+Phase 1 passes. All deliverables (SKILL.md, config-schema.md, plug-command.md) meet the design spec requirements. Ready to proceed to Phase 2 (reference files: install.md, search-and-list.md, vault-management.md).
