@@ -51,8 +51,8 @@ for ref in "$SCRIPT_DIR/references/"*.md; do
   copy_file "$ref" "$DEST_REFS/$(basename "$ref")"
 done
 
-# Interactive /plug command
-copy_file "$SCRIPT_DIR/plug-command.md" "$DEST_CMDS/plug.md"
+# Clean up legacy command file if it exists from a previous install
+rm -f "$HOME/.claude/commands/plug.md"
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

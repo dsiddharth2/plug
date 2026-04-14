@@ -42,9 +42,9 @@ echo "==> Removing PlugVault skill files..."
 remove_file "$DEST_SKILL/SKILL.md"
 remove_file "$DEST_REFS/config-schema.md"
 remove_file "$DEST_REFS/install.md"
+remove_file "$DEST_REFS/interactive-flows.md"
 remove_file "$DEST_REFS/search-and-list.md"
 remove_file "$DEST_REFS/vault-management.md"
-remove_file "$DEST_CMDS/plug.md"
 
 # ── Remove empty directories ───────────────────────────────────────────────────
 echo ""

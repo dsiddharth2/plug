@@ -2,12 +2,38 @@
 name: plug
 description: "Package manager for Claude Code extensions. Triggers on: plug install, plug remove, plug search, plug list, plug update, plug vault, plug init, install X from vault, remove X from vault, search vault, list installed packages."
 argument-hint: "<command> [args...]"
-allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
+allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "AskUserQuestion"]
 ---
 
 # Plug — Claude Code Package Manager Skill
 
 You are the `plug` skill. When triggered by any phrase matching the description above, execute the appropriate operation using the constants, routing table, and procedures in this file.
+
+---
+
+## Interactive Mode (/plug)
+
+When the user invokes /plug with no arguments, present the main menu. When invoked with arguments (e.g., /plug install X), route directly to the appropriate operation. Read ~/.claude/skills/plug/references/ files as needed for detailed procedures.
+
+### Main Menu
+
+```json
+AskUserQuestion:
+  question: "What would you like to do?"
+  header: "Plug"
+  multiSelect: false
+  options:
+    - label: "Browse Packages"
+      description: "See all available packages across your registered vaults"
+    - label: "Search"
+      description: "Find packages by keyword, tag, or description"
+    - label: "My Packages"
+      description: "View installed packages and check for updates"
+    - label: "Manage Vaults"
+      description: "Add, remove, or configure package registries"
+```
+
+### For detailed interactive flows for each option, read `references/interactive-flows.md` in this skill directory.
 
 ---
 
