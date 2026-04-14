@@ -7,6 +7,7 @@ const tmpDir = path.join(os.tmpdir(), `plugvault-init-test-${Date.now()}`);
 const localPlugvaultDir = path.join(tmpDir, '.plugvault');
 const localSkillsDir = path.join(tmpDir, '.claude', 'skills');
 const localCommandsDir = path.join(tmpDir, '.claude', 'commands');
+const localAgentsDir = path.join(tmpDir, '.claude', 'agents');
 const localInstalledFile = path.join(tmpDir, '.plugvault', 'installed.json');
 
 vi.mock('../src/utils/paths.js', async (importOriginal) => {
@@ -20,6 +21,10 @@ vi.mock('../src/utils/paths.js', async (importOriginal) => {
     getClaudeCommandsDir: (global = false) => {
       if (global) return path.join(os.homedir(), '.claude', 'commands');
       return localCommandsDir;
+    },
+    getClaudeAgentsDir: (global = false) => {
+      if (global) return path.join(os.homedir(), '.claude', 'agents');
+      return localAgentsDir;
     },
     getInstalledFilePath: (global = false) => {
       if (global) return path.join(os.homedir(), '.plugvault', 'installed.json');
@@ -40,7 +45,7 @@ describe('plug init', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('creates .claude/skills/, .claude/commands/, and .plugvault/installed.json', async () => {
+  it('creates .claude/skills/, .claude/commands/, .claude/agents/, and .plugvault/installed.json', async () => {
     await runInit();
 
     const skillsStat = await fs.stat(localSkillsDir);
@@ -48,6 +53,9 @@ describe('plug init', () => {
 
     const commandsStat = await fs.stat(localCommandsDir);
     expect(commandsStat.isDirectory()).toBe(true);
+
+    const agentsStat = await fs.stat(localAgentsDir);
+    expect(agentsStat.isDirectory()).toBe(true);
 
     const installedStat = await fs.stat(localInstalledFile);
     expect(installedStat.isFile()).toBe(true);
@@ -83,5 +91,16 @@ describe('plug init', () => {
     // installed.json should be created
     const installedStat = await fs.stat(localInstalledFile);
     expect(installedStat.isFile()).toBe(true);
+  });
+
+  it('creates .claude/agents/ when skills and commands already exist', async () => {
+    // Pre-create skills and commands but not agents
+    await fs.mkdir(localSkillsDir, { recursive: true });
+    await fs.mkdir(localCommandsDir, { recursive: true });
+
+    await runInit();
+
+    const agentsStat = await fs.stat(localAgentsDir);
+    expect(agentsStat.isDirectory()).toBe(true);
   });
 });

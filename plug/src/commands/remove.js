@@ -6,7 +6,7 @@ import { ctx, verbose } from '../utils/context.js';
 export function registerRemove(program) {
   program
     .command('remove <name>')
-    .description('Remove an installed skill or command')
+    .description('Remove an installed skill, command, or agent')
     .option('-g, --global', 'remove from global ~/.claude/ install')
     .action(async (name, options) => {
       try {

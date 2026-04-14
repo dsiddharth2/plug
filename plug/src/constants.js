@@ -4,6 +4,7 @@ export const PLUGVAULT_DIR = '.plugvault';
 export const CLAUDE_DIR = '.claude';
 export const SKILLS_DIR = 'skills';
 export const COMMANDS_DIR = 'commands';
+export const AGENTS_DIR = 'agents';
 export const CONFIG_FILE = 'config.json';
 export const INSTALLED_FILE = 'installed.json';
 export const CACHE_DIR = 'cache';

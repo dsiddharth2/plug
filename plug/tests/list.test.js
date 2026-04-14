@@ -191,4 +191,27 @@ describe('plug list', () => {
     expect(allOutput).toContain('api-patterns');
     expect(allOutput).not.toContain('code-review');
   });
+
+  it('lists agent-type packages and filters by --type agent', async () => {
+    await fs.writeFile(
+      localInstalledFile,
+      JSON.stringify({
+        installed: {
+          'code-review': { type: 'command', vault: 'official', version: '1.0.0', path: '/p.md' },
+          'code-agent': { type: 'agent', vault: 'official', version: '1.0.0', path: '/a.md' },
+        },
+      }),
+      'utf8',
+    );
+    await fs.writeFile(globalInstalledFile, JSON.stringify({ installed: {} }), 'utf8');
+
+    const output = [];
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation((...args) => output.push(args.join(' ')));
+    await runList({ type: 'agent' });
+    consoleSpy.mockRestore();
+
+    const allOutput = output.join('\n');
+    expect(allOutput).toContain('code-agent');
+    expect(allOutput).not.toContain('code-review');
+  });
 });

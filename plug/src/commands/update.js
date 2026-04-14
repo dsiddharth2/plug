@@ -4,15 +4,15 @@ import fs from 'fs/promises';
 import { getInstalled, trackInstall } from '../utils/tracker.js';
 import { findPackage } from '../utils/registry.js';
 import { downloadFile } from '../utils/fetcher.js';
-import { getClaudeSkillsDir, getClaudeCommandsDir, ensureDir } from '../utils/paths.js';
+import { getClaudeDirForType, ensureDir } from '../utils/paths.js';
 import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
 
 export function registerUpdate(program) {
   program
     .command('update [name]')
-    .description('Update an installed skill or command to the latest version')
-    .option('--all', 'update all installed skills and commands')
+    .description('Update an installed skill, command, or agent to the latest version')
+    .option('--all', 'update all installed skills, commands, and agents')
     .option('-g, --global', 'check the global install scope')
     .action(async (name, options) => {
       try {
@@ -134,7 +134,7 @@ export async function runUpdate(name, options = {}) {
 
   const entryFile = meta.entry || `${name}.md`;
   const type = meta.type || pkg.type || record.type || 'command';
-  const destDir = type === 'skill' ? getClaudeSkillsDir(isGlobal) : getClaudeCommandsDir(isGlobal);
+  const destDir = getClaudeDirForType(type, isGlobal);
   await ensureDir(destDir);
   const destPath = path.join(destDir, entryFile);
 

@@ -15,6 +15,8 @@ const claudeDir = path.join(tmpDir, '.claude');
 const commandsDir = path.join(claudeDir, 'commands');
 const skillsDir = path.join(claudeDir, 'skills');
 
+const agentsDir = path.join(claudeDir, 'agents');
+
 vi.mock('../src/utils/paths.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -25,6 +27,12 @@ vi.mock('../src/utils/paths.js', async (importOriginal) => {
     getInstalledFilePath: () => installedPath,
     getClaudeCommandsDir: () => commandsDir,
     getClaudeSkillsDir: () => skillsDir,
+    getClaudeAgentsDir: () => agentsDir,
+    getClaudeDirForType: (type) => {
+      if (type === 'skill') return skillsDir;
+      if (type === 'agent') return agentsDir;
+      return commandsDir;
+    },
     ensureDir: actual.ensureDir,
   };
 });
@@ -56,6 +64,20 @@ function makeRegistry(version = '1.2.0') {
         path: 'registry/code-review',
         description: 'Code review',
         tags: ['review'],
+      },
+    },
+  };
+}
+
+function makeAgentRegistry(version = '1.2.0') {
+  return {
+    packages: {
+      'code-agent': {
+        type: 'agent',
+        version,
+        path: 'registry/code-agent',
+        description: 'Coding agent',
+        tags: ['agent'],
       },
     },
   };
@@ -101,6 +123,7 @@ beforeEach(async () => {
   await fs.mkdir(cacheDir, { recursive: true });
   await fs.mkdir(commandsDir, { recursive: true });
   await fs.mkdir(skillsDir, { recursive: true });
+  await fs.mkdir(agentsDir, { recursive: true });
   await writeConfig({
     vaults: { official: officialVault },
     resolve_order: ['official'],
@@ -278,6 +301,40 @@ describe('runUpdate', () => {
     await runUpdate('code-review');
     const fileContent = await fs.readFile(path.join(commandsDir, 'code-review.md'), 'utf8');
     expect(fileContent).toBe('# updated code review v1.1.0');
+  });
+
+  it('updates agent-type package to .claude/agents/', async () => {
+    await writeInstalled({
+      installed: {
+        'code-agent': {
+          type: 'agent',
+          vault: 'official',
+          version: '1.0.0',
+          path: path.join(agentsDir, 'code-agent.md'),
+        },
+      },
+    });
+
+    global.fetch = vi.fn().mockImplementation((url) => {
+      if (url.includes('registry.json')) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => makeAgentRegistry('1.2.0') });
+      }
+      if (url.includes('meta.json')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ type: 'agent', entry: 'code-agent.md', version: '1.2.0' }),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200, text: async () => '# updated code-agent v1.2.0' });
+    });
+
+    const result = await runUpdate('code-agent');
+    expect(result.status).toBe('updated');
+    expect(result.to).toBe('1.2.0');
+
+    const fileContent = await fs.readFile(path.join(agentsDir, 'code-agent.md'), 'utf8');
+    expect(fileContent).toBe('# updated code-agent v1.2.0');
   });
 
 });

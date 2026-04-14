@@ -6,6 +6,7 @@ import {
   CLAUDE_DIR,
   SKILLS_DIR,
   COMMANDS_DIR,
+  AGENTS_DIR,
   INSTALLED_FILE,
   CONFIG_FILE,
   CACHE_DIR,
@@ -34,6 +35,26 @@ export function getClaudeSkillsDir(global = false) {
 export function getClaudeCommandsDir(global = false) {
   const base = global ? os.homedir() : process.cwd();
   return path.join(base, CLAUDE_DIR, COMMANDS_DIR);
+}
+
+/**
+ * Returns the .claude/agents/ path.
+ * @param {boolean} global - If true, returns the path under home dir.
+ */
+export function getClaudeAgentsDir(global = false) {
+  const base = global ? os.homedir() : process.cwd();
+  return path.join(base, CLAUDE_DIR, AGENTS_DIR);
+}
+
+/**
+ * Returns the correct .claude/ subdirectory for a given package type.
+ * @param {string} type - Package type: 'skill', 'agent', or default (commands).
+ * @param {boolean} global - If true, returns the path under home dir.
+ */
+export function getClaudeDirForType(type, global = false) {
+  if (type === 'skill') return getClaudeSkillsDir(global);
+  if (type === 'agent') return getClaudeAgentsDir(global);
+  return getClaudeCommandsDir(global);
 }
 
 /**

@@ -113,6 +113,29 @@ describe('plug remove', () => {
     expect(data.installed['missing']).toBeUndefined();
   });
 
+  it('removes an agent-type package and deletes the file', async () => {
+    const fakeFile = path.join(tmpDir, '.claude', 'agents', 'code-agent.md');
+    await fs.mkdir(path.dirname(fakeFile), { recursive: true });
+    await fs.writeFile(fakeFile, '# code-agent', 'utf8');
+
+    await fs.writeFile(
+      localInstalledFile,
+      JSON.stringify({
+        installed: {
+          'code-agent': { type: 'agent', vault: 'official', version: '1.0.0', path: fakeFile },
+        },
+      }),
+      'utf8',
+    );
+
+    await runRemove('code-agent', {});
+
+    await expect(fs.access(fakeFile)).rejects.toThrow();
+
+    const data = JSON.parse(await fs.readFile(localInstalledFile, 'utf8'));
+    expect(data.installed['code-agent']).toBeUndefined();
+  });
+
   it('does not touch global installed.json when removing locally', async () => {
     const fakeFile = path.join(tmpDir, '.claude', 'commands', 'code-review.md');
     await fs.mkdir(path.dirname(fakeFile), { recursive: true });
