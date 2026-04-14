@@ -108,3 +108,87 @@ Recommend addressing the 2 HIGH findings before merging. MEDIUM findings are qua
 ### Re-Review Verdict: APPROVED
 
 Phase 1 passes. All deliverables (SKILL.md, config-schema.md, plug-command.md) meet the design spec requirements. Ready to proceed to Phase 2 (reference files: install.md, search-and-list.md, vault-management.md).
+
+---
+
+## Phase 2 Review — Reference Files
+
+**Reviewer:** Plug Reviewer Agent
+**Date:** 2026-04-14
+**Branch:** feat/skill-redesign
+**Files reviewed:** plug/skill/references/install.md, plug/skill/references/search-and-list.md, plug/skill/references/vault-management.md
+**Cross-reference files:** plug/skill/SKILL.md, plug/skill/plug-command.md, plug/skill/references/config-schema.md
+**Spec:** roadmap/skill-redesign-plan.md
+
+---
+
+### Verdict: APPROVED
+
+---
+
+### Findings
+
+#### MEDIUM
+
+1. **search-and-list.md — Multi-keyword scoring algorithm is underspecified**
+   - **File:** plug/skill/references/search-and-list.md, Step 4 (line 197)
+   - **Description:** Step 4 states: "If the keyword maps to a known category (e.g., 'API & HTTP' → search for 'api', 'http', 'rest', 'graphql'), apply multi-keyword scoring by averaging across keywords." However, the scoring function defined in Step 3 handles only a single keyword. When the interactive command maps a category to multiple keywords (e.g., "Testing" → `["test", "testing", "tdd", "unit", "integration"]`), the expected scoring behavior is ambiguous. Should each keyword be scored independently then averaged? Should a package's final score be the max across keywords? Should overlapping name/description matches across keywords be deduplicated before averaging?
+   - **Suggestion:** Add a `score_package_multi(pkg_name, pkg, keywords)` pseudocode function. Recommend: score each keyword independently using `score_package()`, then take the **maximum** score (not average) — averaging penalizes packages that match one keyword strongly but not others. Alternatively, if averaging is intentional, clarify that zero-scoring keywords are excluded from the denominator.
+
+#### LOW
+
+2. **vault-management.md — vault set-token uses free-text prompt instead of AskUserQuestion panel for vault selection**
+   - **File:** plug/skill/references/vault-management.md, vault set-token Step 1 (line 325–329)
+   - **Description:** When the vault name is not provided as an argument, the procedure says "output in chat: Which vault do you want to set a token for?" and "If still ambiguous, list the registered vaults and ask." Other vault subcommands that require vault selection (vault remove Step 2, vault set-default Step 2) use AskUserQuestion panels with structured options. This inconsistency means set-token relies on free-text parsing while similar operations use panels.
+   - **Suggestion:** Add a fallback AskUserQuestion panel when the vault name is missing, matching the pattern used in vault remove/set-default. The token itself must remain free-text (security rule), but the vault selection can be a panel.
+
+3. **install.md — Update `--all` only targets one scope**
+   - **File:** plug/skill/references/install.md, Update Step 1–2 (lines 239–255)
+   - **Description:** The update procedure determines scope at Step 1 (local by default), then `update --all` iterates all packages in that scope. There is no way to update packages across both scopes simultaneously via the shortcut (e.g., `plug update --all` only updates local). The interactive flow (plug-command.md My Packages → Check for Updates) reads both scopes and presents them together, so interactive users are unaffected.
+   - **Suggestion:** Document this as expected behavior or add a note: "To update packages in both scopes, run `plug update --all` then `plug update --all -g`." Alternatively, add a `--all-scopes` flag, though this may be over-engineering for the current use case.
+
+4. **vault-management.md — vault add "Add Anyway" path produces awkward report**
+   - **File:** plug/skill/references/vault-management.md, vault add Steps 3–5 (lines 159, 186–197)
+   - **Description:** When the user selects "Add Anyway" after a connectivity failure, Step 3 sets `packageCount = "unknown"`. Step 5's report template then reads `Packages | {packageCount} packages found`, producing "unknown packages found" — grammatically awkward.
+   - **Suggestion:** Handle the "unknown" case explicitly in Step 5: `Packages | Unverified (connectivity test skipped)` or similar.
+
+---
+
+### Checklist Verification
+
+| Check | Status | Notes |
+|-------|--------|-------|
+| **install.md — 12 install steps** | PASS | All 12 steps present (parse → auto-init → fetch registry → lookup → multi-vault conflict → check installed → fetch meta → fetch file → route by type → write → update installed.json → report). |
+| **install.md — Update procedure** | PASS | 7-step update procedure: read installed → determine targets → fetch registry → semver compare (references SKILL.md Section 7) → report table → re-download → confirm. |
+| **install.md — Error handling table** | PASS | Defers to SKILL.md Section 4.3 for HTTP errors (404/401/403/5xx/000). Additional 6-row table covers config missing, resolve_order empty, corrupt JSON, missing meta.entry, write failure. |
+| **install.md — Scope support** | PASS | Scope table with trigger words, installed.json paths, and target dirs. Global config always read regardless of scope. |
+| **install.md — AskUserQuestion panels** | PASS | Two panels: multi-vault conflict (Step 5) and already-installed conflict (Step 6). Both have valid JSON structure. |
+| **search-and-list.md — 3 operations** | PASS | List Local, List Remote, Search — all fully defined. |
+| **search-and-list.md — Scoring algorithm** | PASS | 40/30/20/10 scoring with correct rules: name is highest-only (exact OR partial), description and tag are additive. Python pseudocode provided. |
+| **search-and-list.md — Example tables** | PASS | Three standalone examples at bottom (list, list --remote, search) plus inline examples in each section. |
+| **vault-management.md — 6 subcommands** | PASS | vault list, add, remove, set-default, set-token, sync — all fully defined. |
+| **vault-management.md — AskUserQuestion panels** | PASS | 5 panels: vault add visibility (Step 1), vault add error retry (Step 3), vault remove selection (Step 2), vault remove safety for official (Step 2), vault set-default selection (Step 2). All have valid JSON structure. |
+| **vault-management.md — Error handling** | PASS | Connectivity test with retry loop (bounded at 2 attempts). Error handling summary table with 7 conditions. Remediation hints for failed vaults in sync. |
+| **Cross-references to SKILL.md** | PASS | All three files correctly reference SKILL.md Section 3 (auth), Section 4 (fetch pattern), Section 4.3 (error table). install.md also references Section 5a (init) and Section 7 (semver). |
+| **Cross-references from plug-command.md** | PASS | Shortcut routing table correctly points to `~/.claude/skills/plug/references/install.md`, `search-and-list.md`, `vault-management.md`. |
+| **JSON field consistency with config-schema.md** | PASS | install.md writes `{type, vault, version, path, installedAt}` matching installed.json schema. All files access `config.vaults`, `config.resolve_order`, `config.default_vault`, `registry.packages` with correct field names. vault-management.md writes `{name, owner, repo, branch, private, token?}` matching config.json vault schema. |
+
+---
+
+### Summary
+
+| Severity | Count |
+|----------|-------|
+| HIGH     | 0     |
+| MEDIUM   | 1     |
+| LOW      | 3     |
+
+**install.md** is the strongest deliverable — all 12 install steps are complete with clear flow, the update procedure correctly references semver comparison, error handling is thorough, scope support is well-documented, and both AskUserQuestion panels have valid structure. The conflict and multi-vault resolution flows are faithful to the design spec.
+
+**search-and-list.md** is comprehensive. All 3 operations are fully specified with step-by-step procedures, the scoring algorithm is correct with a clean Python implementation, filter flags are well-documented, and examples are plentiful. The only gap is the underspecified multi-keyword scoring path (Finding #1).
+
+**vault-management.md** covers all 6 subcommands with complete procedures, AskUserQuestion panels, and error handling. The vault add flow handles connectivity testing with a bounded retry loop and "Add Anyway" escape hatch. The vault remove flow correctly protects the official vault and prevents removing the only registered vault. vault sync provides per-vault status with remediation hints.
+
+**Cross-references** between all files are consistent. Reference file paths in SKILL.md and plug-command.md match the actual filenames. SKILL.md section references (3, 4, 4.3, 5a, 7) from the reference files point to the correct sections. JSON field names are consistent across all files and the config-schema.md schemas.
+
+No HIGH findings. The 1 MEDIUM finding (multi-keyword scoring) is a clarity issue, not a correctness bug — the single-keyword path works correctly. The 3 LOW findings are polish items. Phase 2 deliverables meet the design spec requirements.
