@@ -23,6 +23,20 @@ These are just markdown files. `plug` makes it easy to share, discover, and inst
 
 ## Quick Start
 
+### Skill (Recommended)
+
+Install plug as a Claude Code skill — no Node.js required:
+
+```bash
+bash <(curl -sf https://raw.githubusercontent.com/dsiddharth2/plug/main/plug/skill/install.sh)
+```
+
+Then open any Claude Code session and run `/plug` to browse and install packages interactively, or just ask Claude in plain English: _"install the code-review package"_.
+
+### CLI (Alternative)
+
+For scripted environments or CI pipelines:
+
 ```bash
 npm install -g plugvault
 plug init

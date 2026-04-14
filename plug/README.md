@@ -20,6 +20,32 @@ These are just markdown files. `plug` makes it easy to share, discover, and inst
 
 ## Install
 
+### Skill Installation (Recommended)
+
+Install the `plug` skill directly into Claude Code — no Node.js required. This gives you two ways to use plug:
+
+1. **`/plug` interactive command** — a menu-driven UI for browsing, installing, and managing packages. Run `/plug` in any Claude Code session to open the main menu.
+2. **Natural language** — ask Claude to install, search, or manage packages in plain English. The skill gives Claude all the context it needs.
+
+```bash
+bash <(curl -sf https://raw.githubusercontent.com/dsiddharth2/plug/main/plug/skill/install.sh)
+```
+
+This installs:
+- `~/.claude/skills/plug/SKILL.md` — core skill (auto-loaded in all sessions)
+- `~/.claude/skills/plug/references/` — detailed procedure files
+- `~/.claude/commands/plug.md` — the `/plug` interactive command
+
+### How It Works (Skill)
+
+The skill uses **progressive disclosure**: SKILL.md holds routing logic and constants; detail lives in reference files that Claude loads on demand. This keeps the always-loaded skill small while giving Claude full procedure depth when needed.
+
+When you type `/plug`, Claude opens a menu and walks you through browsing, installing, or managing packages interactively using structured question panels. No flags to memorize.
+
+### CLI Installation (Legacy/CI)
+
+For scripted environments, CI pipelines, or if you prefer a traditional CLI:
+
 ```bash
 npm install -g plugvault
 ```
