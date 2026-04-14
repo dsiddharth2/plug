@@ -192,3 +192,74 @@ Phase 1 passes. All deliverables (SKILL.md, config-schema.md, plug-command.md) m
 **Cross-references** between all files are consistent. Reference file paths in SKILL.md and plug-command.md match the actual filenames. SKILL.md section references (3, 4, 4.3, 5a, 7) from the reference files point to the correct sections. JSON field names are consistent across all files and the config-schema.md schemas.
 
 No HIGH findings. The 1 MEDIUM finding (multi-keyword scoring) is a clarity issue, not a correctness bug — the single-keyword path works correctly. The 3 LOW findings are polish items. Phase 2 deliverables meet the design spec requirements.
+
+---
+
+## Phase 4 Review — Documentation
+
+**Reviewer:** Plug Reviewer Agent
+**Date:** 2026-04-14
+**Branch:** feat/skill-redesign
+**Files reviewed:** plug/README.md, README.md (root), plug/skill/install.sh, plug/skill/uninstall.sh, .gitattributes
+**Commits reviewed:** ca766b4, 8943579, f579b3e
+
+---
+
+### Verdict: APPROVED
+
+---
+
+### Findings
+
+#### LOW
+
+1. **plug/README.md — "Getting started" section still shows CLI-only workflow**
+   - **File:** plug/README.md, lines 57–72
+   - **Description:** The "Getting started" section (after the Install section) shows `plug init`, `plug search review`, `plug list --remote`, `plug install code-review` — all CLI commands. Since the README now positions the skill as the recommended installation method, new users who installed via the skill bootstrap will reach this section and see commands they can't run (they don't have the CLI). The section should either note that these commands assume CLI installation, or show the skill-equivalent workflow first (e.g., "Run `/plug` and select Browse").
+   - **Suggestion:** Add a brief note at the top of "Getting started": "The examples below use the CLI. If you installed plug as a skill, run `/plug` in Claude Code to access the same functionality interactively."
+
+2. **plug/README.md — "registry CONTRIBUTING guide" link points to sibling directory**
+   - **File:** plug/README.md, line 223
+   - **Description:** The link `[registry CONTRIBUTING guide](../plugvault/CONTRIBUTING.md)` resolves to a sibling `plugvault/` directory relative to the repo root. This works if the user has both repos cloned side by side, but will be a broken link on GitHub and for most cloners. The root README.md correctly uses the full GitHub URL for this same link.
+   - **Suggestion:** Change to the full URL: `https://github.com/dsiddharth2/plugvault/blob/main/CONTRIBUTING.md` (matching root README.md line 65).
+
+3. **Root README.md — No mention of uninstall.sh**
+   - **File:** README.md (root)
+   - **Description:** The root README mentions the bootstrap one-liner for install but provides no guidance on how to uninstall the skill. The uninstall script exists (`plug/skill/uninstall.sh`) but is not referenced anywhere in either README.
+   - **Suggestion:** Add a brief "Uninstall" section or note under the Skill quick start: "To remove: `bash <(curl -sf https://raw.githubusercontent.com/dsiddharth2/plug/main/plug/skill/uninstall.sh)`"
+
+---
+
+### Checklist Verification
+
+| Check | Status | Notes |
+|-------|--------|-------|
+| **plug/README.md — "Skill Installation (Recommended)" section before CLI** | PASS | Lines 23–43 present skill installation first, CLI section follows at line 45 labeled "CLI Installation (Legacy/CI)". |
+| **plug/README.md — Bootstrap one-liner present and URL correct** | PASS | Line 31: `bash <(curl -sf https://raw.githubusercontent.com/dsiddharth2/plug/main/plug/skill/install.sh)` — URL points to correct repo and path. |
+| **plug/README.md — CLI section renamed to legacy** | PASS | Line 45: "### CLI Installation (Legacy/CI)" — clearly labeled as legacy/CI alternative. |
+| **plug/README.md — Two entry points explained** | PASS | Lines 27–29: `/plug` interactive command and natural language are listed as the two ways to use plug via skill. |
+| **plug/README.md — How It Works section** | PASS | Lines 39–42: "### How It Works (Skill)" explains progressive disclosure architecture and `/plug` command. |
+| **Root README.md — Quick Start shows skill installation first** | PASS | Lines 26–33: "### Skill (Recommended)" with bootstrap one-liner appears before CLI section. |
+| **Root README.md — /plug command mentioned** | PASS | Line 35: "run `/plug` to browse and install packages interactively". |
+| **Root README.md — CLI kept as alternative** | PASS | Lines 37–45: "### CLI (Alternative)" with npm install and link to CLI README. |
+| **No broken links — URLs point to dsiddharth2/plug** | PASS | All GitHub URLs use `dsiddharth2/plug`. Internal relative links (plug/README.md, plug/docs/authoring-guide.md, plug/CONTRIBUTING.md, LICENSE) all resolve to existing files. One exception: plug/README.md line 223 `../plugvault/CONTRIBUTING.md` is a cross-repo relative link (see Finding #2). |
+| **Shell scripts have LF line endings** | PASS | `git ls-files --eol` confirms both scripts have `i/lf` (LF in git index). `.gitattributes` rule `*.sh text eol=lf` ensures LF on checkout. |
+| **.gitattributes added** | PASS | Single rule: `*.sh text eol=lf`. Committed in ca766b4. |
+| **install.sh — correct behavior** | PASS | Creates directories (`~/.claude/skills/plug/`, `references/`, `~/.claude/commands/`), copies SKILL.md, all reference/*.md files, and plug-command.md → plug.md. Reports installed count and warns on overwrites. Uses `set -euo pipefail`. |
+| **uninstall.sh — correct behavior** | PASS | Removes all 6 known files (SKILL.md, 4 reference files, plug.md), cleans up empty directories. Reports removed/skipped counts. Uses `set -euo pipefail`. |
+
+---
+
+### Summary
+
+| Severity | Count |
+|----------|-------|
+| HIGH     | 0     |
+| MEDIUM   | 0     |
+| LOW      | 3     |
+
+Both READMEs correctly implement the skill-first approach. The root README is clean and concise — Quick Start leads with the skill bootstrap, CLI is clearly positioned as an alternative, and `/plug` is mentioned. The plug/README.md is comprehensive with the recommended/legacy split, How It Works section, and correct bootstrap URL.
+
+The install/uninstall scripts are well-structured with proper error handling (`set -euo pipefail`), informative output, and overwrite warnings. `.gitattributes` correctly enforces LF line endings for shell scripts, confirmed by git index inspection.
+
+All 3 findings are LOW — a CLI-centric "Getting started" section that could confuse skill-only users, a cross-repo relative link that won't resolve on GitHub, and a missing uninstall reference. No blocking issues. Phase 4 deliverables meet the design spec requirements.
