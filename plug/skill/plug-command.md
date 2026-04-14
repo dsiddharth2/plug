@@ -121,9 +121,13 @@ AskUserQuestion:
       description: "agent · v1.0.0 — Generates unit tests for your code"
     - label: "git-workflow"
       description: "command · v1.0.0 — Standardized git branching workflow"
+    - label: "Other"
+      description: "Type a package name not listed above"
 ```
 
 If user selects nothing or cancels, output: "No packages installed." and stop.
+
+If user selects "Other": ask in chat — "Please type the package name you want to install:" — then proceed to Step 5 treating the typed name as the selected package.
 
 ### Step 5 — Install selected packages (no panel)
 
@@ -190,7 +194,7 @@ Map selected category to search keywords:
 - "DevOps & CI" → ["devops", "ci", "deploy", "pipeline", "infrastructure"]
 - "Other" → ask user to type free-text keyword in next message
 
-If "Other" selected, ask in chat: "Please type your search keyword:"
+If "Other" selected: output the prompt as a chat message — "Please type your search keyword:" — then wait for the user's next message. Parse that message as the keyword and proceed to Step 2. Do not use AskUserQuestion for free-text input.
 
 ### Step 2 — Fetch and score (no panel)
 
@@ -291,6 +295,8 @@ AskUserQuestion:
       description: "Return to conversation"
 ```
 
+If "Done" selected: stop — return to conversation. No further output needed.
+
 ---
 
 ### My Packages → Check for Updates
@@ -299,8 +305,8 @@ AskUserQuestion:
 
 For each installed package:
 1. Fetch registry.json from the recorded `vault`
-2. Compare `installed[pkg].version` vs `registry.packages[pkg].version` (string comparison)
-3. Flag as "Update available" if they differ
+2. Compare `installed[pkg].version` vs `registry.packages[pkg].version` using the semver comparison helper in SKILL.md Section 7 (not plain string comparison — `"1.9.0"` < `"1.10.0"`)
+3. Flag as "Update available" only when the registry version is `"newer"`
 
 ### Step 5a — Update report (chat output)
 

@@ -141,7 +141,10 @@ The package index for a vault. Fetched to browse, search, and resolve package na
 ```typescript
 {
   name: string,      // vault display name
-  version: string,   // registry schema version (not package version)
+  version: string,   // registry schema version (not package version). Currently "1".
+                     // Future schema changes will increment this value.
+                     // The skill should warn if it encounters an unrecognized version:
+                     //   "Registry schema version '{version}' is unrecognized. Update the plug skill."
   packages: {
     [packageName: string]: {
       type: "skill" | "command" | "agent",
