@@ -94,6 +94,7 @@ vi.mock('../src/utils/fetcher.js', () => ({
 vi.mock('../src/utils/tracker.js', () => ({
   trackInstall: vi.fn(),
   isInstalled: vi.fn(),
+  getInstalled: vi.fn().mockResolvedValue({ installed: {} }),
 }));
 
 vi.mock('@inquirer/prompts', () => ({
@@ -103,7 +104,7 @@ vi.mock('@inquirer/prompts', () => ({
 
 const { findPackage, findAllPackages } = await import('../src/utils/registry.js');
 const { downloadFile } = await import('../src/utils/fetcher.js');
-const { trackInstall, isInstalled } = await import('../src/utils/tracker.js');
+const { trackInstall, isInstalled, getInstalled } = await import('../src/utils/tracker.js');
 const { confirm, select } = await import('@inquirer/prompts');
 const { runInstall } = await import('../src/commands/install.js');
 
@@ -142,7 +143,7 @@ describe('plug install', () => {
     );
   });
 
-  it('installs a skill to .claude/skills/', async () => {
+  it('installs a skill to .claude/skills/<name>/SKILL.md (per-skill subdir)', async () => {
     findAllPackages.mockResolvedValue([{ pkg: sampleSkillPkg, vault: sampleVault }]);
     downloadFile
       .mockReset()
@@ -151,13 +152,17 @@ describe('plug install', () => {
 
     await runInstall('api-patterns', {});
 
-    const destPath = path.join(localSkillsDir, 'api-patterns.md');
+    const destPath = path.join(localSkillsDir, 'api-patterns', 'SKILL.md');
     const content = await fs.readFile(destPath, 'utf8');
     expect(content).toBe('# api-patterns content');
 
     expect(trackInstall).toHaveBeenCalledWith(
       'api-patterns',
-      expect.objectContaining({ type: 'skill', vault: 'official' }),
+      expect.objectContaining({
+        type: 'skill',
+        vault: 'official',
+        path: destPath,
+      }),
       false,
     );
   });
@@ -301,6 +306,112 @@ describe('plug install', () => {
 
     const allOutput = output.join('\n');
     expect(allOutput).toContain("The agent 'code-agent' is available for delegation");
+  });
+
+  // ── Phase 2: per-skill subdir layout ─────────────────────────────────────────
+
+  it('fresh install of 3 skills produces 3 separate subdirs each with SKILL.md', async () => {
+    const skills = [
+      { name: 'api-patterns',   content: '# api-patterns'   },
+      { name: 'code-style',     content: '# code-style'     },
+      { name: 'error-handling', content: '# error-handling' },
+    ];
+
+    // Clear beforeEach's queued code-review download values
+    downloadFile.mockReset();
+
+    for (const skill of skills) {
+      const pkg = { name: skill.name, type: 'skill', version: '1.0.0', path: `registry/${skill.name}`, description: '' };
+      const meta = { name: skill.name, type: 'skill', version: '1.0.0', entry: 'SKILL.md' };
+      findAllPackages.mockResolvedValueOnce([{ pkg, vault: sampleVault }]);
+      downloadFile
+        .mockResolvedValueOnce(JSON.stringify(meta))
+        .mockResolvedValueOnce(skill.content);
+
+      await runInstall(skill.name, {});
+    }
+
+    for (const skill of skills) {
+      const skillPath = path.join(localSkillsDir, skill.name, 'SKILL.md');
+      const content = await fs.readFile(skillPath, 'utf8');
+      expect(content).toBe(skill.content);
+    }
+  });
+
+  it('migrates parseable legacy flat SKILL.md to per-skill subdir on next install', async () => {
+    // Set up a legacy flat SKILL.md with parseable frontmatter
+    const legacyContent = '---\nname: old-skill\nversion: 1.0.0\n---\n# old-skill content';
+    const legacyPath = path.join(localSkillsDir, 'SKILL.md');
+    await fs.writeFile(legacyPath, legacyContent, 'utf8');
+
+    // Mock getInstalled to return the old record pointing at legacy path
+    getInstalled.mockResolvedValue({
+      installed: { 'old-skill': { type: 'skill', vault: 'official', version: '1.0.0', path: legacyPath, installedAt: '2026-01-01T00:00:00.000Z' } },
+    });
+
+    // Install a new skill — migration should run first
+    const newPkg = { name: 'new-skill', type: 'skill', version: '1.0.0', path: 'registry/new-skill', description: '' };
+    const newMeta = { name: 'new-skill', type: 'skill', version: '1.0.0', entry: 'SKILL.md' };
+    findAllPackages.mockResolvedValue([{ pkg: newPkg, vault: sampleVault }]);
+    downloadFile
+      .mockReset()  // clear beforeEach's code-review values
+      .mockResolvedValueOnce(JSON.stringify(newMeta))
+      .mockResolvedValueOnce('# new-skill content');
+
+    await runInstall('new-skill', {});
+
+    // Legacy flat SKILL.md should be gone
+    await expect(fs.access(legacyPath)).rejects.toThrow();
+
+    // Legacy skill should now live in its own subdir
+    const migratedPath = path.join(localSkillsDir, 'old-skill', 'SKILL.md');
+    const migratedContent = await fs.readFile(migratedPath, 'utf8');
+    expect(migratedContent).toBe(legacyContent);
+
+    // trackInstall should have been called for the manifest update
+    expect(trackInstall).toHaveBeenCalledWith(
+      'old-skill',
+      expect.objectContaining({ path: migratedPath }),
+      false,
+    );
+
+    // New skill should be in its own subdir
+    const newPath = path.join(localSkillsDir, 'new-skill', 'SKILL.md');
+    const newContent = await fs.readFile(newPath, 'utf8');
+    expect(newContent).toBe('# new-skill content');
+  });
+
+  it('leaves unparseable legacy flat SKILL.md in place and logs a warning', async () => {
+    // Flat SKILL.md with no frontmatter at all
+    const legacyContent = '# some skill without frontmatter';
+    const legacyPath = path.join(localSkillsDir, 'SKILL.md');
+    await fs.writeFile(legacyPath, legacyContent, 'utf8');
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const newPkg = { name: 'another-skill', type: 'skill', version: '1.0.0', path: 'registry/another-skill', description: '' };
+    const newMeta = { name: 'another-skill', type: 'skill', version: '1.0.0', entry: 'SKILL.md' };
+    findAllPackages.mockResolvedValue([{ pkg: newPkg, vault: sampleVault }]);
+    downloadFile
+      .mockReset()  // clear beforeEach's code-review values
+      .mockResolvedValueOnce(JSON.stringify(newMeta))
+      .mockResolvedValueOnce('# another-skill content');
+
+    await runInstall('another-skill', {});
+
+    // Legacy flat SKILL.md must still exist, untouched
+    const remaining = await fs.readFile(legacyPath, 'utf8');
+    expect(remaining).toBe(legacyContent);
+
+    // A warning should have been logged
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('leaving in place'));
+
+    warnSpy.mockRestore();
+
+    // New skill still installs correctly in its own subdir
+    const newPath = path.join(localSkillsDir, 'another-skill', 'SKILL.md');
+    const newContent = await fs.readFile(newPath, 'utf8');
+    expect(newContent).toBe('# another-skill content');
   });
 
 });
