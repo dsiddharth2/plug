@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from 'react';
-import { Box, Text, useInput, useStdout } from 'ink';
+import React, { useState } from 'react';
+import { Box, Text, useInput } from 'ink';
 import PackageItem from './package-item.jsx';
+import { useTerminalSize } from '../hooks/use-terminal-size.js';
 
 /**
  * Scrollable, cursor-tracked package list with viewport windowing and Space toggling.
@@ -33,8 +34,7 @@ export default function PackageList({
   const [cursor, setCursor] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [internalToggled, setInternalToggled] = useState(new Set());
-  const { stdout } = useStdout();
-  const terminalWidth = stdout?.columns ?? 80;
+  const { columns: terminalWidth } = useTerminalSize();
 
   const toggled = externalToggled !== undefined ? externalToggled : internalToggled;
 

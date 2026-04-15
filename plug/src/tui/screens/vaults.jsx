@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Box, Text, useInput, useStdout } from 'ink';
+import { Box, Text, useInput } from 'ink';
+import { useTerminalSize } from '../hooks/use-terminal-size.js';
 import Spinner from '../components/spinner.jsx';
 import { useVaults } from '../hooks/use-vaults.js';
 import { captureOutput } from '../utils/capture-stdout.js';
@@ -28,8 +29,7 @@ export default function VaultsScreen({ onInputCapture }) {
   const [pendingRemove, setPendingRemove] = useState(null);
   const [addState, setAddState] = useState(null); // { step, name, url, branch, private }
   const [syncResults, setSyncResults] = useState([]);
-  const { stdout } = useStdout();
-  const terminalWidth = stdout?.columns ?? 80;
+  const { columns: terminalWidth } = useTerminalSize();
 
   // Notify parent when input is locked
   useEffect(() => {

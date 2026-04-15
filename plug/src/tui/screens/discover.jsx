@@ -23,7 +23,7 @@ import { ctx } from '../../utils/context.js';
  * @param {{ onInputCapture: (locked: boolean) => void }} props
  */
 export default function DiscoverScreen({ onInputCapture }) {
-  const { packages, loading, error } = usePackages();
+  const { packages, loading, error, warning } = usePackages();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [view, setView] = useState(/** @type {DiscoverView} */ ('list'));
@@ -229,9 +229,18 @@ export default function DiscoverScreen({ onInputCapture }) {
   }
 
   const isFiltered = searchQuery.trim().length > 0;
+  const emptyMessage = isFiltered
+    ? `No results for '${searchQuery.trim()}'. Try a different search term.`
+    : 'No packages found. Check your vault configuration.';
 
   return (
     <Box flexDirection="column" flexGrow={1}>
+      {warning && (
+        <Box paddingX={2}>
+          <Text color="yellow">{warning}</Text>
+        </Box>
+      )}
+
       <SearchBox
         query={searchQuery}
         focused={searchFocused}
@@ -248,6 +257,7 @@ export default function DiscoverScreen({ onInputCapture }) {
         toggled={toggled}
         onToggle={handleToggle}
         installedNames={installedNames}
+        emptyMessage={emptyMessage}
       />
 
       <StatusLine
