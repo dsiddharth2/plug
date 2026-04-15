@@ -1,0 +1,25 @@
+{
+  "sprint": "tui",
+  "branch": "feat/tui",
+  "base_branch": "main",
+  "tasks": [
+    { "id": "0.1", "phase": 0, "title": "Remove old skill files from repo", "type": "task", "status": "completed", "notes": "Deleted plug/skill/ (7 files), roadmap/skill-redesign-plan.md, and unstaged plug/feedback.md (TUI version stays on disk to be re-committed)" },
+    { "id": "0.2", "phase": 0, "title": "Remove installed skill copies from user home", "type": "task", "status": "completed", "notes": "Deleted ~/.claude/skills/plug/ directory (SKILL.md + references/)" },
+    { "id": "0.V", "phase": 0, "title": "VERIFY: Phase 0 — Cleanup", "type": "verify", "status": "completed", "notes": "VERIFIED: plug/skill/ GONE, ~/.claude/skills/plug/ GONE, CLI --help works, all 186 tests pass (17 test files)" },
+    { "id": "1.1", "phase": 1, "title": "Add Ink dependencies and JSX support", "type": "task", "status": "pending", "notes": "" },
+    { "id": "1.2", "phase": 1, "title": "Create tab-bar and app shell", "type": "task", "status": "pending", "notes": "" },
+    { "id": "1.3", "phase": 1, "title": "Create package-list and package-item components", "type": "task", "status": "pending", "notes": "" },
+    { "id": "1.V", "phase": 1, "title": "VERIFY: Phase 1 — TUI Foundation", "type": "verify", "status": "pending", "notes": "" },
+    { "id": "2.1", "phase": 2, "title": "Create use-packages hook, stdout wrapper, and Discover screen", "type": "task", "status": "pending", "notes": "" },
+    { "id": "2.2", "phase": 2, "title": "Create search-box with live filtering", "type": "task", "status": "pending", "notes": "" },
+    { "id": "2.3", "phase": 2, "title": "Create package-detail panel and install action", "type": "task", "status": "pending", "notes": "" },
+    { "id": "2.V", "phase": 2, "title": "VERIFY: Phase 2 — Discover Screen", "type": "verify", "status": "pending", "notes": "" },
+    { "id": "3.1", "phase": 3, "title": "Create Installed screen with update/remove", "type": "task", "status": "pending", "notes": "" },
+    { "id": "3.2", "phase": 3, "title": "Create Vaults screen with sync and add form", "type": "task", "status": "pending", "notes": "" },
+    { "id": "3.V", "phase": 3, "title": "VERIFY: Phase 3 — Installed & Vaults Screens", "type": "verify", "status": "pending", "notes": "" },
+    { "id": "4.1", "phase": 4, "title": "Terminal resize handling and edge cases", "type": "task", "status": "pending", "notes": "" },
+    { "id": "4.2", "phase": 4, "title": "TUI tests", "type": "task", "status": "pending", "notes": "" },
+    { "id": "4.3", "phase": 4, "title": "Update README, npm publish prep, and GitHub Actions workflow", "type": "task", "status": "pending", "notes": "" },
+    { "id": "4.V", "phase": 4, "title": "VERIFY: Phase 4 — Polish & Distribution", "type": "verify", "status": "pending", "notes": "" }
+  ]
+}
