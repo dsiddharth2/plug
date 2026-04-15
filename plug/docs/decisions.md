@@ -47,6 +47,28 @@ This matters because scoring tuning (adding new tiers, adjusting weights) now ne
 
 See: `src/utils/search-scoring.js`
 
+## Why direct ANSI sequences instead of Ink `fullScreen`
+
+**The problem:** Ink re-renders by tracking line count and rewriting in place. When a tall list view transitions to a shorter result view (e.g. list → install progress → install complete), stale lines from the previous render remain visible in the scrollback — the "ghost / double-render" symptom (issue #9).
+
+**Ink's API:** Ink 5.2.1 does not expose a `fullScreen` option. There is no built-in way to switch the terminal into the alternate screen buffer via Ink.
+
+**Alternatives considered:**
+
+1. **Bump Ink** — Ink 5.x does not add a fullScreen API. Bumping to a hypothetical future version with this feature would be speculative, and bumping the dep at all risked breaking the TTY fix in PR #6 (which depends on Ink's specific signal-exit integration) and other internal integrations.
+2. **Per-screen manual clear** — Insert a `\x1b[2J` (clear screen) before each view transition. This would require instrumenting every state transition in every screen and still wouldn't properly handle scrollback.
+
+**Chosen approach:** Write `\x1b[?1049h` (alt-screen enter) before `render()` and `\x1b[?1049l` (alt-screen leave) on exit, directly from `launchTui()`. This is:
+- A single change point — all screens and state transitions benefit uniformly.
+- Version-safe — the sequences are part of the VT100/xterm standard and work across all terminals plug targets.
+- Non-invasive — no changes to screen components or state machines.
+
+The same pattern is layered for bracketed paste (`\x1b[?2004h/l`), which also has no Ink API equivalent.
+
+See: `src/index.js` (`launchTui`) and `docs/features/paste.md`.
+
+---
+
 ## Why `/` to focus search
 
 **The problem:** The TUI needs both live text search and single-key action shortcuts (`i` install, `u` update, `r` remove). A user typing `i` to search for packages starting with "i" would inadvertently trigger the install action.

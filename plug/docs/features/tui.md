@@ -86,6 +86,36 @@ Lists all configured vaults. Each entry shows:
 
 ---
 
+## Alt-screen buffer
+
+The TUI runs inside the terminal's **alternate screen buffer**, entered and left using direct ANSI escape sequences in `launchTui()` (`src/index.js`):
+
+| Sequence | Effect |
+|---|---|
+| `\x1b[?1049h` | Enter alt-screen (save cursor, switch to blank buffer) |
+| `\x1b[?1049l` | Leave alt-screen (restore cursor and prior buffer contents) |
+
+Alt-screen entry happens **after** the non-TTY guard and `resolveStdin()`, immediately before `render()`. This ensures Ink renders into a clean buffer — the normal terminal scrollback is preserved below and is restored when the user exits.
+
+Without alt-screen, Ink tracks line count and rewrites in-place, but tall list contents scroll into the scrollback. When a subsequent screen renders fewer lines (e.g. transitioning from a long package list to an install-progress view), the stale content from the previous render remains visible above the new content — the "ghost / double-render" symptom.
+
+**Why direct ANSI sequences:** Ink 5.2.1 does not expose a `fullScreen` option. Bumping Ink would have broken the TTY fix in PR #6 and other integrations. Direct ANSI sequences are intentional and version-safe.
+
+**Teardown:** `cleanup()` is registered on both `process.on('exit')` and `waitUntilExit().then()`. Both registrations are harmless because the ANSI writes are idempotent.
+
+---
+
+## Bracketed paste
+
+See [`docs/features/paste.md`](paste.md) for the full description. In brief:
+
+- `\x1b[?2004h` / `\x1b[?2004l` enable/disable bracketed paste mode.
+- Enabled immediately **after** alt-screen enter; disabled **before** alt-screen leave (reverse order on teardown).
+- The shared `usePaste` hook (`src/tui/hooks/use-paste.js`) delivers complete paste payloads to text inputs.
+- Active in `SearchBox` (when focused) and `AddVaultForm` (always while mounted).
+
+---
+
 ## Offline behavior (stale cache fallback)
 
 The registry module (`src/utils/registry.js`) has two cache read paths:

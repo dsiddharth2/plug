@@ -104,3 +104,21 @@ This two-mode design resolves the keyboard conflict: without it, pressing `i` in
 When plug looks up a package, it walks the `resolve_order` array in `config.json` and checks each vault's registry in turn. The first vault that contains a package wins. The official vault (`dsiddharth2/plugvault`, branch `main`) is always pre-seeded and cannot be removed. Additional vaults are prepended or appended via `vault add` and `vault set-default`.
 
 Resolution order is also used by `use-packages` hook to merge all vaults into a single flat package list for the Discover screen.
+
+---
+
+## Terminal buffer management
+
+The TUI uses direct ANSI escape sequences for two terminal features that Ink 5.2.1 does not expose:
+
+**Alt-screen buffer** (`\x1b[?1049h` / `\x1b[?1049l`): Switches the terminal into a separate screen buffer so Ink renders into a clean area. When the TUI exits, the terminal restores the prior buffer and cursor position. This prevents stale content from previous render frames from persisting in the scrollback (the "ghost / double-render" symptom when transitioning between screens of different heights).
+
+**Bracketed paste mode** (`\x1b[?2004h` / `\x1b[?2004l`): Instructs the terminal to wrap pasted text between `ESC[200~` and `ESC[201~` markers. The TUI's `usePaste` hook detects these markers on stdin and delivers the complete paste as a single callback, rather than letting it arrive as a burst of individual keystroke events.
+
+**Enter/leave ordering invariant:**
+```
+Enter:  alt-screen → bracketed paste
+Leave:  bracketed paste → alt-screen
+```
+
+Both are managed in `launchTui()` (`src/index.js`) and apply unconditionally to all TUI screens. See `docs/decisions.md` for why a direct ANSI approach was chosen over a library bump.
