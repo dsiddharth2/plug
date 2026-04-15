@@ -9,15 +9,30 @@ import PackageItem from './package-item.jsx';
  *   items: Array<{ name: string, vault: string, version: string, type: string, description?: string }>,
  *   viewportHeight?: number,
  *   onSelect?: (item: object) => void,
+ *   onCursorChange?: (index: number, item: object) => void,
  *   isActive?: boolean,
+ *   toggled?: Set<number>,
+ *   onToggle?: (index: number) => void,
+ *   installedNames?: Set<string>,
  * }} props
  */
-export default function PackageList({ items = [], viewportHeight = 10, onSelect, isActive = true }) {
+export default function PackageList({
+  items = [],
+  viewportHeight = 10,
+  onSelect,
+  onCursorChange,
+  isActive = true,
+  toggled: externalToggled,
+  onToggle,
+  installedNames,
+}) {
   const [cursor, setCursor] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
-  const [toggled, setToggled] = useState(new Set());
+  const [internalToggled, setInternalToggled] = useState(new Set());
   const { stdout } = useStdout();
   const terminalWidth = stdout?.columns ?? 80;
+
+  const toggled = externalToggled !== undefined ? externalToggled : internalToggled;
 
   // Lines per item: 1 if no description, 2 if has description
   const itemHeight = (item) => item.description ? 2 : 1;
@@ -32,22 +47,28 @@ export default function PackageList({ items = [], viewportHeight = 10, onSelect,
       const next = Math.max(0, cursor - 1);
       setCursor(next);
       setScrollOffset(off => adjustScroll(off, next, items, viewportHeight));
+      if (onCursorChange) onCursorChange(next, items[next]);
     }
     if (key.downArrow) {
       const next = Math.min(items.length - 1, cursor + 1);
       setCursor(next);
       setScrollOffset(off => adjustScroll(off, next, items, viewportHeight));
+      if (onCursorChange) onCursorChange(next, items[next]);
     }
     if (input === ' ') {
-      setToggled(prev => {
-        const next = new Set(prev);
-        if (next.has(cursor)) {
-          next.delete(cursor);
-        } else {
-          next.add(cursor);
-        }
-        return next;
-      });
+      if (onToggle) {
+        onToggle(cursor);
+      } else {
+        setInternalToggled(prev => {
+          const next = new Set(prev);
+          if (next.has(cursor)) {
+            next.delete(cursor);
+          } else {
+            next.add(cursor);
+          }
+          return next;
+        });
+      }
     }
     if (key.return && onSelect) {
       onSelect(items[cursor]);
@@ -82,6 +103,7 @@ export default function PackageList({ items = [], viewportHeight = 10, onSelect,
           item={item}
           isCursor={index === cursor}
           isToggled={toggled.has(index)}
+          isInstalled={installedNames?.has(item.name) ?? false}
           terminalWidth={terminalWidth}
         />
       ))}

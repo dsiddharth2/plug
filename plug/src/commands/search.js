@@ -3,6 +3,7 @@ import { getResolveOrder } from '../utils/config.js';
 import { fetchRegistry } from '../utils/registry.js';
 import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
+import { scoreMatch } from '../utils/search-scoring.js';
 
 export function registerSearch(program) {
   program
@@ -35,28 +36,6 @@ export function registerSearch(program) {
         process.exit(1);
       }
     });
-}
-
-/**
- * Scores a package match against a keyword.
- * Returns 0 if no match, higher is better.
- * Score tiers:
- *   40 — exact name match
- *   30 — partial name match
- *   20 — description match
- *   10 — tag match
- */
-function scoreMatch(name, pkg, keyword) {
-  const kw = keyword.toLowerCase();
-  const pkgName = name.toLowerCase();
-  const desc = (pkg.description || '').toLowerCase();
-  const tags = (pkg.tags || []).map((t) => t.toLowerCase());
-
-  if (pkgName === kw) return 40;
-  if (pkgName.includes(kw)) return 30;
-  if (desc.includes(kw)) return 20;
-  if (tags.some((t) => t.includes(kw))) return 10;
-  return 0;
 }
 
 /**

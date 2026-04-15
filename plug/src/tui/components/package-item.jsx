@@ -15,8 +15,8 @@ import { Box, Text } from 'ink';
  *   terminalWidth?: number,
  * }} props
  */
-export default function PackageItem({ item, isCursor, isToggled, terminalWidth = 80 }) {
-  const checkbox = isToggled ? '[x]' : '[ ]';
+export default function PackageItem({ item, isCursor, isToggled, isInstalled = false, terminalWidth = 80 }) {
+  const checkbox = isToggled ? '[x]' : isInstalled ? '[✓]' : '[ ]';
   const cursor = isCursor ? '>' : ' ';
   const typeLabel = item.type ? `[${item.type}]` : '';
 
@@ -42,7 +42,7 @@ export default function PackageItem({ item, isCursor, isToggled, terminalWidth =
     <Box flexDirection="column">
       {/* Line 1: checkbox · cursor · name info · type badge */}
       <Box>
-        <Text color={isToggled ? 'yellow' : 'gray'}>{checkbox} </Text>
+        <Text color={isToggled ? 'yellow' : isInstalled ? 'green' : 'gray'}>{checkbox} </Text>
         <Text bold={isCursor} color={isCursor ? 'blue' : undefined}>{cursor} </Text>
         <Text bold={isCursor}>{truncatedName}</Text>
         {typeLabel ? (
