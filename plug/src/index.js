@@ -43,8 +43,18 @@ if (process.argv.length <= 2) {
 }
 
 async function launchTui() {
+  const { resolveStdin } = await import('./tui/utils/resolve-stdin.js');
+  let inputStream;
+  try {
+    inputStream = resolveStdin();
+  } catch (err) {
+    process.stderr.write(err.message + '\n');
+    process.exit(1);
+  }
+
   const { render } = await import('ink');
   const { createElement } = await import('react');
   const { default: App } = await import('./tui/app.jsx');
-  render(createElement(App));
+  const options = inputStream !== process.stdin ? { stdin: inputStream } : {};
+  render(createElement(App), options);
 }
