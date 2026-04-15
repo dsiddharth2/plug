@@ -12,6 +12,7 @@
 
 ## LOW
 - progress.json is UTF-16 LE encoded (BOM `FF FE` prefix, wide chars). Every other file in the repo is UTF-8. This makes `cat`/`jq` usage awkward and will cause noisy diffs if a future tool rewrites it in UTF-8. — progress.json — pre-existing from the seed commit (f2579c9), not introduced by Phase 1.
+  **Doer:** verified at Phase 2 start — `xxd` of both the current HEAD and the seed commit f2579c9 confirms progress.json has no BOM and is UTF-8 throughout the commit history; no rewrite required. LOW finding is resolved.
 
 ## Notes
 - **npm test:** 212 passed (23 files), all green
