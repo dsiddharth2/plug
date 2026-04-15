@@ -71,9 +71,16 @@ async function launchTui() {
   // Ink 5.x has no built-in fullScreen option, so we use direct ANSI sequences.
   process.stdout.write('\x1b[?1049h');
 
-  // Ensure alt-screen is exited on any termination path
+  // Enable bracketed paste so terminals wrap pasted text in ESC[200~/ESC[201~
+  // markers, allowing the TUI to receive paste as a single event (fixes #11).
+  // Must be enabled AFTER alt-screen enter.
+  process.stdout.write('\x1b[?2004h');
+
+  // Teardown: disable bracketed paste BEFORE leaving alt-screen (reverse of enter order).
+  const leavePasteMode = () => process.stdout.write('\x1b[?2004l');
   const leaveAltScreen = () => process.stdout.write('\x1b[?1049l');
-  process.on('exit', leaveAltScreen);
+  const cleanup = () => { leavePasteMode(); leaveAltScreen(); };
+  process.on('exit', cleanup);
 
   const { render } = await import('ink');
   const { createElement } = await import('react');
@@ -82,7 +89,7 @@ async function launchTui() {
   const instance = render(createElement(App), options);
 
   instance.waitUntilExit().then(() => {
-    leaveAltScreen();
+    cleanup();
     process.exit(0);
   });
 }
