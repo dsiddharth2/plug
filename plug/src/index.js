@@ -66,9 +66,23 @@ async function launchTui() {
     process.exit(1);
   }
 
+  // Enter alternate screen buffer so Ink re-renders replace content
+  // instead of appending below the previous frame (fixes #9 ghost/double-render).
+  // Ink 5.x has no built-in fullScreen option, so we use direct ANSI sequences.
+  process.stdout.write('\x1b[?1049h');
+
+  // Ensure alt-screen is exited on any termination path
+  const leaveAltScreen = () => process.stdout.write('\x1b[?1049l');
+  process.on('exit', leaveAltScreen);
+
   const { render } = await import('ink');
   const { createElement } = await import('react');
   const { default: App } = await import('./tui/app.jsx');
   const options = inputStream !== process.stdin ? { stdin: inputStream } : {};
-  render(createElement(App), options);
+  const instance = render(createElement(App), options);
+
+  instance.waitUntilExit().then(() => {
+    leaveAltScreen();
+    process.exit(0);
+  });
 }
