@@ -1,5 +1,6 @@
 import { program } from 'commander';
 import { ctx } from './utils/context.js';
+import { pkgVersion } from './utils/pkg-version.js';
 import { registerInit } from './commands/init.js';
 import { registerInstall } from './commands/install.js';
 import { registerRemove } from './commands/remove.js';
@@ -11,7 +12,7 @@ import { registerVault } from './commands/vault.js';
 program
   .name('plug')
   .description('Install Claude skills and commands from vaults')
-  .version('1.0.0')
+  .version(pkgVersion)
   .option('--verbose', 'enable debug output (log fetch URLs, auth method, cache hits)')
   .option('--json', 'output results as machine-readable JSON')
   .option('--yes', 'skip interactive prompts (auto-confirm overwrites, auto-pick first vault on conflict)');
