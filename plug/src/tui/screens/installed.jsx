@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import PackageList from '../components/package-list.jsx';
 import StatusLine from '../components/status-line.jsx';
 import Spinner from '../components/spinner.jsx';
 import { useInstalled } from '../hooks/use-installed.js';
-import { captureOutput } from '../utils/capture-stdout.js';
+import { captureOutput, yieldToInk } from '../utils/capture-stdout.js';
 import { runUpdate } from '../../commands/update.js';
 import { runRemove } from '../../commands/remove.js';
 import { ctx } from '../../utils/context.js';
@@ -77,6 +77,7 @@ export default function InstalledScreen({ onInputCapture }) {
 
     const results = [];
     for (const pkg of targets) {
+      await yieldToInk();
       try {
         const { captured } = await captureOutput(() =>
           runUpdate(pkg.name, { global: pkg.scope === 'global' })
@@ -106,6 +107,7 @@ export default function InstalledScreen({ onInputCapture }) {
 
     const results = [];
     for (const pkg of targets) {
+      await yieldToInk();
       try {
         await captureOutput(() =>
           runRemove(pkg.name, { global: pkg.scope === 'global' })
@@ -305,8 +307,12 @@ function ConfirmRemove({ targets, onConfirm, onCancel }) {
 }
 
 function OperationResult({ result, onDone }) {
+  const doneRef = useRef(false);
   useInput((input, key) => {
-    if (key.escape || key.return || input) onDone();
+    if (!doneRef.current && (key.escape || key.return || input)) {
+      doneRef.current = true;
+      onDone();
+    }
   });
 
   const label = result.type === 'update' ? 'Update' : 'Remove';
@@ -316,8 +322,8 @@ function OperationResult({ result, onDone }) {
       <Box marginBottom={1}>
         <Text bold>{label} complete</Text>
       </Box>
-      {result.results.map((r) => (
-        <Box key={`${r.name}-${r.status}`}>
+      {result.results.map((r, idx) => (
+        <Box key={`${r.name}-${r.status}-${idx}`}>
           {r.status === 'error' ? (
             <Text color="red">✗ {r.name}: {r.error}</Text>
           ) : r.status === 'updated' ? (

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import PackageList from '../components/package-list.jsx';
 import SearchBox from '../components/search-box.jsx';
@@ -9,7 +9,7 @@ import InstallProgress from '../components/install-progress.jsx';
 import InstallComplete from '../components/install-complete.jsx';
 import { usePackages } from '../hooks/use-packages.js';
 import { useSearch } from '../hooks/use-search.js';
-import { captureOutput } from '../utils/capture-stdout.js';
+import { captureOutput, yieldToInk } from '../utils/capture-stdout.js';
 import { runInstall } from '../../commands/install.js';
 import { getInstalled } from '../../utils/tracker.js';
 import { ctx } from '../../utils/context.js';
@@ -34,6 +34,7 @@ export default function DiscoverScreen({ onInputCapture }) {
   const [installResults, setInstallResults] = useState([]);
   const [currentInstalling, setCurrentInstalling] = useState(null);
   const [installedNames, setInstalledNames] = useState(new Set());
+  const installingRef = useRef(false);
 
   // Filtered/searched package list
   const filteredPackages = useSearch(packages, searchQuery);
@@ -128,11 +129,13 @@ export default function DiscoverScreen({ onInputCapture }) {
   }, []);
 
   function startInstall(queue) {
+    if (installingRef.current) return;
+    installingRef.current = true;
     setInstallQueue(queue);
     setInstallResults([]);
     setCurrentInstalling(null);
     setView('installing');
-    doInstall(queue);
+    doInstall(queue).finally(() => { installingRef.current = false; });
   }
 
   async function doInstall(queue) {
@@ -142,6 +145,10 @@ export default function DiscoverScreen({ onInputCapture }) {
 
     for (const pkg of queue) {
       setCurrentInstalling(pkg.name);
+      // Yield so Ink renders the installing view to the real terminal before
+      // captureOutput intercepts stdout. Without this, Ink's frames are swallowed
+      // and the cursor position drifts, causing ghost/double-render on return.
+      await yieldToInk();
       try {
         const { captured } = await captureOutput(() =>
           runInstall(`${pkg.vault}/${pkg.name}`, { global: false })

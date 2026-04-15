@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 
 /**
@@ -12,8 +12,13 @@ import { Box, Text, useInput } from 'ink';
  * }} props
  */
 export default function InstallComplete({ results, onDone }) {
+  const doneRef = useRef(false);
+
   useInput(() => {
-    onDone();
+    if (!doneRef.current) {
+      doneRef.current = true;
+      onDone();
+    }
   });
 
   const succeeded = results.filter((r) => r.status === 'success');
