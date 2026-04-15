@@ -4,8 +4,7 @@ A package manager for Claude Code. Install reusable skills and commands into any
 
 ```bash
 npm install -g plugvault
-plug init
-plug install code-review
+plug          # launch the interactive TUI (primary interface)
 ```
 
 ## What is this?
@@ -20,58 +19,87 @@ These are just markdown files. `plug` makes it easy to share, discover, and inst
 
 ## Install
 
-### Skill Installation (Recommended)
-
-Install the `plug` skill directly into Claude Code — no Node.js required. This gives you two ways to use plug:
-
-1. **`/plug` interactive command** — a menu-driven UI for browsing, installing, and managing packages. Run `/plug` in any Claude Code session to open the main menu.
-2. **Natural language** — ask Claude to install, search, or manage packages in plain English. The skill gives Claude all the context it needs.
-
-```bash
-bash <(curl -sf https://raw.githubusercontent.com/dsiddharth2/plug/main/plug/skill/install.sh)
-```
-
-This installs:
-- `~/.claude/skills/plug/SKILL.md` — core skill (auto-loaded in all sessions)
-- `~/.claude/skills/plug/references/` — detailed procedure files
-- `~/.claude/commands/plug.md` — the `/plug` interactive command
-
-### How It Works (Skill)
-
-The skill uses **progressive disclosure**: SKILL.md holds routing logic and constants; detail lives in reference files that Claude loads on demand. This keeps the always-loaded skill small while giving Claude full procedure depth when needed.
-
-When you type `/plug`, Claude opens a menu and walks you through browsing, installing, or managing packages interactively using structured question panels. No flags to memorize.
-
-### CLI Installation (Legacy/CI)
-
-For scripted environments, CI pipelines, or if you prefer a traditional CLI:
-
 ```bash
 npm install -g plugvault
 ```
 
 Requires Node.js 18+.
 
-## Getting started
+## TUI (Interactive Mode)
+
+Running `plug` with no arguments launches the interactive terminal UI — the primary way to use plug.
 
 ```bash
-# Set up your project
-cd my-project
-plug init
-
-# Browse what's available
-plug search review
-plug list --remote
-
-# Install a package
-plug install code-review
-
-# Now use it in Claude Code
-# /code-review  (for commands)
-# Skills load automatically as project context
+plug        # open TUI
+plug tui    # explicit subcommand
 ```
 
-## Commands
+### Using plug from Claude Code
+
+You can launch the TUI directly from a Claude Code session:
+
+```
+! plug
+```
+
+The `!` prefix runs shell commands from within Claude Code. This opens the full interactive TUI where you can browse, install, and manage packages without leaving your workflow.
+
+### TUI Navigation
+
+The TUI has three tabs navigated with **left/right arrows**:
+
+```
+[ Discover ]   Installed   Vaults
+```
+
+#### Discover tab
+
+Browse and install packages from all configured vaults.
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Move cursor |
+| `Enter` | Open package detail |
+| `Space` | Toggle selection (multi-install) |
+| `i` | Install cursor/selected packages |
+| `/` | Focus search box |
+| `Esc` | Unfocus search / go back |
+
+- Type after pressing `/` to filter packages live. The status line shows how many results match.
+- If no packages match your search, the list shows a "No results for '…'" message.
+- When offline, plug shows a warning and uses cached registry data if available.
+
+#### Installed tab
+
+Manage packages already installed in the current project or globally.
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Move cursor |
+| `Enter` | Open package detail |
+| `Space` | Toggle selection |
+| `u` | Update cursor/selected packages |
+| `r` | Remove cursor/selected (with confirmation) |
+
+#### Vaults tab
+
+Manage registry sources (vaults).
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Move cursor |
+| `a` | Add a new vault |
+| `r` | Remove selected vault |
+| `d` | Set selected vault as default |
+| `s` | Sync all vaults (re-fetch registries) |
+
+Press **Esc** or **Ctrl+C** to exit the TUI at any time.
+
+---
+
+## CLI Scripting
+
+The TUI is the primary interface, but all operations are also available as CLI commands for scripting and CI pipelines.
 
 ### `plug init`
 
@@ -84,8 +112,6 @@ plug install code-review              # from any vault (resolve order)
 plug install official/code-review     # from a specific vault
 plug install -g code-review           # install globally to ~/.claude/
 ```
-
-Downloads the package from a vault and places it in the correct `.claude/` subdirectory. If the package exists in multiple vaults, you'll be prompted to choose (or use `--yes` to auto-pick the first match).
 
 ### `plug remove <name>`
 
@@ -100,7 +126,6 @@ plug remove -g code-review            # remove a global install
 plug list                             # installed packages
 plug list --remote                    # everything available across vaults
 plug list --remote --type skill       # filter by type
-plug list --remote --type agent       # filter by type
 plug list --remote --vault official   # filter by vault
 ```
 
@@ -110,10 +135,7 @@ plug list --remote --vault official   # filter by vault
 plug search review
 plug search api --type skill
 plug search assistant --type agent
-plug search design --vault official
 ```
-
-Searches names, descriptions, and tags across all vaults. Results are ranked by relevance.
 
 ### `plug update`
 
@@ -122,25 +144,18 @@ plug update code-review               # update one package
 plug update --all                     # update everything
 ```
 
-Checks the registry for newer versions and re-downloads if available.
-
 ### `plug vault <subcommand>`
 
-Manage registry sources.
-
 ```bash
-plug vault list                       # show registered vaults
+plug vault list
 plug vault add work https://github.com/mycompany/claude-skills
-plug vault add private https://github.com/myorg/vault --token ghp_xxx --private
 plug vault remove work
-plug vault set-default work           # change resolve order
-plug vault set-token private ghp_new  # update auth token
-plug vault sync                       # re-fetch all registries
+plug vault set-default work
+plug vault set-token private ghp_new
+plug vault sync
 ```
 
 ## Global flags
-
-Placed before the subcommand:
 
 ```bash
 plug --verbose install code-review    # debug output to stderr
@@ -152,25 +167,15 @@ plug --yes install code-review        # skip all prompts
 
 A vault is a GitHub repository with a `registry.json` at its root. The official vault is registered by default.
 
-### Multiple vaults
-
-```bash
-plug vault add work https://github.com/mycompany/claude-skills
-plug vault set-default work
-```
-
-Packages resolve in configured order. The default vault is checked first.
-
 ### Private vaults
 
 Private repos need a GitHub personal access token with `repo` read scope.
 
 ```bash
-# Store token in config
 plug vault add corp https://github.com/corp/skills --token ghp_xxx --private
 
 # Or use environment variables
-export PLUGVAULT_TOKEN_CORP=ghp_xxx          # vault-specific (highest priority)
+export PLUGVAULT_TOKEN_CORP=ghp_xxx          # vault-specific
 export PLUGVAULT_GITHUB_TOKEN=ghp_xxx        # fallback for all vaults
 ```
 
@@ -192,13 +197,11 @@ Token resolution: `PLUGVAULT_TOKEN_{VAULT_NAME}` > `PLUGVAULT_GITHUB_TOKEN` > co
     agents/            # installed agents
 ```
 
-`plug install` fetches `registry.json` from the vault, looks up the package, downloads its `meta.json` and `.md` file, and places the `.md` in the right directory. Package metadata is tracked in `installed.json` for updates and removal.
+Registries are cached for 1 hour. When offline, plug uses cached data automatically and shows a warning.
 
 ## Creating packages
 
 See the [Skill Authoring Guide](docs/authoring-guide.md) for the full walkthrough. The short version:
-
-A package is a directory in a vault registry containing two files:
 
 ```
 registry/my-package/

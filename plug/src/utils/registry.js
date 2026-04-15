@@ -36,6 +36,20 @@ export async function getCachedRegistry(vaultName) {
 }
 
 /**
+ * Returns cached registry data regardless of age (offline/stale fallback).
+ * @param {string} vaultName
+ */
+export async function getStaleRegistryCache(vaultName) {
+  const cachePath = getCacheFilePath(vaultName);
+  try {
+    const raw = await fs.readFile(cachePath, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Writes registry data to cache.
  * @param {string} vaultName
  * @param {object} data

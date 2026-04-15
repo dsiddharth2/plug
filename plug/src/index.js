@@ -29,4 +29,22 @@ registerSearch(program);
 registerUpdate(program);
 registerVault(program);
 
-program.parse();
+// 'plug tui' — explicit TUI launch subcommand
+program
+  .command('tui')
+  .description('Launch the interactive TUI (default when no args given)')
+  .action(launchTui);
+
+// Default: no args → launch TUI; otherwise run existing CLI
+if (process.argv.length <= 2) {
+  await launchTui();
+} else {
+  program.parse();
+}
+
+async function launchTui() {
+  const { render } = await import('ink');
+  const { createElement } = await import('react');
+  const { default: App } = await import('./tui/app.jsx');
+  render(createElement(App));
+}
