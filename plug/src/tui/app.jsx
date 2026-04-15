@@ -3,6 +3,8 @@ import { Box, Text, useApp, useInput } from 'ink';
 import TabBar, { TAB_LABELS } from './components/tab-bar.jsx';
 import HotkeyBar from './components/hotkey-bar.jsx';
 import DiscoverScreen from './screens/discover.jsx';
+import InstalledScreen from './screens/installed.jsx';
+import VaultsScreen from './screens/vaults.jsx';
 
 /**
  * Root TUI component. Handles tab switching and global key bindings.
@@ -45,9 +47,11 @@ function ActiveTabContent({ activeTab, onInputCapture }) {
   if (activeTab === 0) {
     return <DiscoverScreen onInputCapture={onInputCapture} />;
   }
-
-  const labels = ['Discover', 'Installed', 'Vaults'];
-  return (
-    <Text dimColor>{labels[activeTab]} — coming soon</Text>
-  );
+  if (activeTab === 1) {
+    return <InstalledScreen onInputCapture={onInputCapture} />;
+  }
+  if (activeTab === 2) {
+    return <VaultsScreen onInputCapture={onInputCapture} />;
+  }
+  return null;
 }

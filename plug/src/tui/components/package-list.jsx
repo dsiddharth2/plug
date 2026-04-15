@@ -14,6 +14,8 @@ import PackageItem from './package-item.jsx';
  *   toggled?: Set<number>,
  *   onToggle?: (index: number) => void,
  *   installedNames?: Set<string>,
+ *   mode?: 'discover'|'installed',
+ *   emptyMessage?: string,
  * }} props
  */
 export default function PackageList({
@@ -25,6 +27,8 @@ export default function PackageList({
   toggled: externalToggled,
   onToggle,
   installedNames,
+  mode = 'discover',
+  emptyMessage = 'No packages found.',
 }) {
   const [cursor, setCursor] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -34,8 +38,8 @@ export default function PackageList({
 
   const toggled = externalToggled !== undefined ? externalToggled : internalToggled;
 
-  // Lines per item: 1 if no description, 2 if has description
-  const itemHeight = (item) => item.description ? 2 : 1;
+  // Lines per item: 2 if has description or path (installed mode), else 1
+  const itemHeight = (item) => (item.description || item.path) ? 2 : 1;
 
   // Build a viewport window: find how many items fit in viewportHeight rows
   const windowedItems = buildWindow(items, cursor, scrollOffset, viewportHeight);
@@ -78,7 +82,7 @@ export default function PackageList({
   if (items.length === 0) {
     return (
       <Box paddingX={1}>
-        <Text dimColor>No packages found.</Text>
+        <Text dimColor>{emptyMessage}</Text>
       </Box>
     );
   }
@@ -99,11 +103,12 @@ export default function PackageList({
       {/* Visible items */}
       {windowedItems.map(({ item, index }) => (
         <PackageItem
-          key={`${item.name}-${item.vault}-${index}`}
+          key={`${item.name}-${item.vault ?? ''}-${item.scope ?? ''}-${index}`}
           item={item}
           isCursor={index === cursor}
           isToggled={toggled.has(index)}
           isInstalled={installedNames?.has(item.name) ?? false}
+          mode={mode}
           terminalWidth={terminalWidth}
         />
       ))}
@@ -127,7 +132,7 @@ function buildWindow(items, cursor, scrollOffset, viewportHeight) {
   let rowsUsed = 0;
 
   for (let i = scrollOffset; i < items.length; i++) {
-    const rows = items[i].description ? 2 : 1;
+    const rows = (items[i].description || items[i].path) ? 2 : 1;
     if (rowsUsed + rows > viewportHeight) break;
     visible.push({ item: items[i], index: i });
     rowsUsed += rows;
@@ -144,7 +149,7 @@ function countVisible(items, scrollOffset, viewportHeight) {
   let rowsUsed = 0;
 
   for (let i = scrollOffset; i < items.length; i++) {
-    const rows = items[i].description ? 2 : 1;
+    const rows = (items[i].description || items[i].path) ? 2 : 1;
     if (rowsUsed + rows > viewportHeight) break;
     count++;
     rowsUsed += rows;
