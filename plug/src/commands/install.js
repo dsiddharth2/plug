@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 import { confirm, select } from '@inquirer/prompts';
 import { findPackage, findAllPackages } from '../utils/registry.js';
 import { downloadFile } from '../utils/fetcher.js';
-import { trackInstall, isInstalled } from '../utils/tracker.js';
+import { trackInstall, isInstalled, getInstalled } from '../utils/tracker.js';
 import { getClaudeSkillsDir, getClaudeAgentsDir, getClaudeDirForType, ensureDir } from '../utils/paths.js';
 import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
@@ -155,9 +155,19 @@ export async function runInstall(name, options = {}) {
   // Route to correct directory by type
   const entryFile = meta.entry || `${pkgName}.md`;
   const type = meta.type || pkg.type || 'command';
-  const destDir = getClaudeDirForType(type, isGlobal);
-  await ensureDir(destDir);
-  const destPath = path.join(destDir, entryFile);
+  let destPath;
+  if (type === 'skill') {
+    // Migrate any legacy flat .claude/skills/SKILL.md before writing new skill
+    await migrateLegacyFlatSkillFile(getClaudeSkillsDir(isGlobal), isGlobal);
+    // Each skill gets its own subdir: .claude/skills/<name>/SKILL.md
+    const skillSubdir = path.join(getClaudeSkillsDir(isGlobal), pkgName);
+    await ensureDir(skillSubdir);
+    destPath = path.join(skillSubdir, 'SKILL.md');
+  } else {
+    const destDir = getClaudeDirForType(type, isGlobal);
+    await ensureDir(destDir);
+    destPath = path.join(destDir, entryFile);
+  }
 
   verbose(`Writing to ${destPath}`);
   try {
@@ -199,5 +209,59 @@ export async function runInstall(name, options = {}) {
     } else {
       console.log(chalk.cyan(`  Usage: /${pkgName}`));
     }
+  }
+}
+
+/**
+ * Migrates a legacy flat .claude/skills/SKILL.md to .claude/skills/<name>/SKILL.md.
+ * Parses the frontmatter for `name:` using a regex. If not parseable, logs a warning
+ * and leaves the file alone (non-destructive).
+ * @param {string} skillsDir - absolute path to .claude/skills/
+ * @param {boolean} isGlobal
+ */
+async function migrateLegacyFlatSkillFile(skillsDir, isGlobal) {
+  const legacyPath = path.join(skillsDir, 'SKILL.md');
+  let content;
+  try {
+    content = await fs.readFile(legacyPath, 'utf8');
+  } catch {
+    return; // no legacy flat file
+  }
+
+  // Extract frontmatter block between first pair of --- fences
+  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/m);
+  if (!fmMatch) {
+    console.warn('Warning: Found legacy .claude/skills/SKILL.md but no frontmatter found — leaving in place.');
+    return;
+  }
+  const nameMatch = fmMatch[1].match(/^name:\s*(\S+)/m);
+  if (!nameMatch) {
+    console.warn('Warning: Found legacy .claude/skills/SKILL.md but could not parse "name:" from frontmatter — leaving in place.');
+    return;
+  }
+
+  const skillName = nameMatch[1];
+  const newDir = path.join(skillsDir, skillName);
+  const newPath = path.join(newDir, 'SKILL.md');
+
+  try {
+    await ensureDir(newDir);
+    await fs.rename(legacyPath, newPath);
+  } catch (err) {
+    console.warn(`Warning: Failed to migrate legacy SKILL.md to ${newPath}: ${err.message}`);
+    return;
+  }
+
+  // Update manifest: find the record pointing at the old path and update it
+  try {
+    const data = await getInstalled(isGlobal);
+    for (const [name, record] of Object.entries(data.installed || {})) {
+      if (record.path === legacyPath) {
+        await trackInstall(name, { ...record, path: newPath }, isGlobal);
+        break;
+      }
+    }
+  } catch {
+    // Non-critical: file already moved; manifest update failure is best-effort
   }
 }

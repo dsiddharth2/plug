@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useTerminalSize } from '../hooks/use-terminal-size.js';
+import { usePaste } from '../hooks/use-paste.js';
 import Spinner from '../components/spinner.jsx';
 import { useVaults } from '../hooks/use-vaults.js';
 import { captureOutput } from '../utils/capture-stdout.js';
@@ -387,6 +388,11 @@ function AddVaultForm({ state, onChange, onSubmit, onCancel, terminalWidth }) {
       setInputBuffer((prev) => prev + ch);
     }
   });
+
+  // Handle bracketed paste as a single insert (#11)
+  usePaste(useCallback((text) => {
+    setInputBuffer((prev) => prev + text);
+  }, []));
 
   function handleSubmitStep() {
     const value = inputBuffer.trim();

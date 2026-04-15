@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 import { getInstalled, trackInstall } from '../utils/tracker.js';
 import { findPackage } from '../utils/registry.js';
 import { downloadFile } from '../utils/fetcher.js';
-import { getClaudeDirForType, ensureDir } from '../utils/paths.js';
+import { getClaudeSkillsDir, getClaudeDirForType, ensureDir } from '../utils/paths.js';
 import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
 
@@ -134,9 +134,16 @@ export async function runUpdate(name, options = {}) {
 
   const entryFile = meta.entry || `${name}.md`;
   const type = meta.type || pkg.type || record.type || 'command';
-  const destDir = getClaudeDirForType(type, isGlobal);
-  await ensureDir(destDir);
-  const destPath = path.join(destDir, entryFile);
+  let destPath;
+  if (type === 'skill') {
+    const skillSubdir = path.join(getClaudeSkillsDir(isGlobal), name);
+    await ensureDir(skillSubdir);
+    destPath = path.join(skillSubdir, 'SKILL.md');
+  } else {
+    const destDir = getClaudeDirForType(type, isGlobal);
+    await ensureDir(destDir);
+    destPath = path.join(destDir, entryFile);
+  }
 
   verbose(`Writing to ${destPath}`);
   try {

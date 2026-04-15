@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { usePaste } from '../hooks/use-paste.js';
 
 /**
  * Search box component. Activated by '/' from the parent, receives keystrokes
@@ -32,6 +33,12 @@ export default function SearchBox({ query, focused, onChange, onBlur }) {
       onChange(query + input);
     }
   });
+
+  // Handle bracketed paste as a single insert (#11)
+  const handlePaste = useCallback((text) => {
+    onChange(query + text);
+  }, [query, onChange]);
+  usePaste(handlePaste, { isActive: focused });
 
   if (!focused && !query) return null;
 

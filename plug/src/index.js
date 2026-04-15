@@ -44,6 +44,19 @@ if (process.argv.length <= 2) {
 }
 
 async function launchTui() {
+  if (!process.stdin.isTTY) {
+    console.error(
+      "plug requires an interactive terminal (TTY).\n" +
+      "It cannot be rendered here — this looks like a non-TTY context such as:\n" +
+      "  - Claude Code's Bash tool\n" +
+      "  - a piped shell (e.g. `plug | cat`, `plug < /dev/null`)\n" +
+      "  - a CI runner\n" +
+      "  - a VS Code task runner\n" +
+      "Run plug directly in a terminal (Windows Terminal, PowerShell, bash, etc.)."
+    );
+    process.exit(1);
+  }
+
   const { resolveStdin } = await import('./tui/utils/resolve-stdin.js');
   let inputStream;
   try {
@@ -53,9 +66,30 @@ async function launchTui() {
     process.exit(1);
   }
 
+  // Enter alternate screen buffer so Ink re-renders replace content
+  // instead of appending below the previous frame (fixes #9 ghost/double-render).
+  // Ink 5.x has no built-in fullScreen option, so we use direct ANSI sequences.
+  process.stdout.write('\x1b[?1049h');
+
+  // Enable bracketed paste so terminals wrap pasted text in ESC[200~/ESC[201~
+  // markers, allowing the TUI to receive paste as a single event (fixes #11).
+  // Must be enabled AFTER alt-screen enter.
+  process.stdout.write('\x1b[?2004h');
+
+  // Teardown: disable bracketed paste BEFORE leaving alt-screen (reverse of enter order).
+  const leavePasteMode = () => process.stdout.write('\x1b[?2004l');
+  const leaveAltScreen = () => process.stdout.write('\x1b[?1049l');
+  const cleanup = () => { leavePasteMode(); leaveAltScreen(); };
+  process.on('exit', cleanup);
+
   const { render } = await import('ink');
   const { createElement } = await import('react');
   const { default: App } = await import('./tui/app.jsx');
   const options = inputStream !== process.stdin ? { stdin: inputStream } : {};
-  render(createElement(App), options);
+  const instance = render(createElement(App), options);
+
+  instance.waitUntilExit().then(() => {
+    cleanup();
+    process.exit(0);
+  });
 }
