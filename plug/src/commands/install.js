@@ -8,6 +8,7 @@ import { trackInstall, isInstalled } from '../utils/tracker.js';
 import { getClaudeSkillsDir, getClaudeAgentsDir, getClaudeDirForType, ensureDir } from '../utils/paths.js';
 import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
+import { pkgVersion } from '../utils/pkg-version.js';
 
 export function registerInstall(program) {
   program
@@ -172,7 +173,7 @@ export async function runInstall(name, options = {}) {
   }
 
   // Track in installed.json
-  const version = meta.version || pkg.version || '1.0.0';
+  const version = meta.version || pkg.version || pkgVersion;
   await trackInstall(
     pkgName,
     { type, vault: vault.name, version, path: destPath },
