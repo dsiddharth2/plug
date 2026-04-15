@@ -85,3 +85,25 @@ See: `src/index.js` (`launchTui`) and `docs/features/paste.md`.
 `/` is the conventional "search" key in many TUI tools (vim, less, man pages). It is not a printable character that would appear in a package name, so it is unambiguous as a mode toggle. `Esc` is the universal "back/cancel" key.
 
 The key invariant: action keys only fire when **both** (a) at least one item is toggled and (b) the search box is not focused. This is checked in each screen's `useInput` handler before dispatching any action.
+
+## Fix: Terminal Corruption and Input Echo during Installation
+
+**The problem:** When installing packages via the TUI, the terminal would often become corrupted, showing "ghost" renders or echoing unconsumed input (e.g., `fdfdfdfdfdfdq`). This made the TUI appear frozen or broken after an installation.
+
+**Root Causes:**
+1. **Global stdout hijacking:** The original `captureOutput` implementation intercepted *all* writes to `stdout` and `stderr` while a command was running. This included Ink's own background re-render cycles (e.g., for the TUI's animated spinners). These frames were swallowed into the captured string instead of being drawn to the terminal, causing the TUI to "freeze" and desynchronize.
+2. **Spinner Interference:** The `ora` spinners used in `runInstall` and `runUpdate` were still attempting to write to the terminal even when `stdout` was captured, often leading to terminal mode conflicts.
+3. **Input Race Conditions:** Rapid keypresses during the transition from the "Installing" to "Complete" screens could trigger multiple state updates, leading to double-renders or unexpected view swaps.
+
+**Chosen Fixes:**
+
+1. **Context-Aware Output Capture:** Refactored `src/tui/utils/capture-stdout.js` to use `AsyncLocalStorage`. The monkey-patched `write` functions now check if the current execution context is "inside" the `captureOutput` call.
+   - **Writes from the command** (e.g., `runInstall`) are captured.
+   - **Writes from Ink's background ticks** (outside the command's context) bypass the capture and go straight to the real terminal.
+   This allows the TUI to continue rendering its own UI (including spinners) while the background installation output is being captured.
+
+2. **Silenced Spinners in JSON Mode:** Modified `src/utils/ui.js` to make `createSpinner` return a no-op object whenever `ctx.json` is true. Since the TUI always sets `json: true` before running commands, this effectively silences all `ora` output that would otherwise interfere with Ink.
+
+3. **Input Guards:** Added `useRef` guards to `InstallComplete` and `OperationResult` components to ensure that `onDone` (and thus the view transition back to the list) is only called exactly once, regardless of how many keys are pressed or queued.
+
+See: `src/tui/utils/capture-stdout.js`, `src/utils/ui.js`, and `src/tui/components/install-complete.jsx`.

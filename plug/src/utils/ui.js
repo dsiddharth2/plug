@@ -1,15 +1,16 @@
 import ora from 'ora';
+import { ctx } from './context.js';
 
 /**
  * Creates a spinner. Returns a silent no-op in non-TTY environments
- * (tests, CI, piped output) so output stays clean.
- * In TTY mode, starts and returns an ora spinner.
+ * (tests, CI, piped output) or when JSON output is requested (TUI mode),
+ * so output stays clean.
  *
  * @param {string} text - Initial spinner text
  * @returns {import('ora').Ora | object}
  */
 export function createSpinner(text) {
-  if (!process.stdout.isTTY) {
+  if (!process.stdout.isTTY || ctx.json) {
     return {
       start() { return this; },
       stop() { return this; },

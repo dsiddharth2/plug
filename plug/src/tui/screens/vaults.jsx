@@ -4,7 +4,7 @@ import { useTerminalSize } from '../hooks/use-terminal-size.js';
 import { usePaste } from '../hooks/use-paste.js';
 import Spinner from '../components/spinner.jsx';
 import { useVaults } from '../hooks/use-vaults.js';
-import { captureOutput } from '../utils/capture-stdout.js';
+import { captureOutput, yieldToInk } from '../utils/capture-stdout.js';
 import {
   runVaultAdd,
   runVaultRemove,
@@ -78,6 +78,7 @@ export default function VaultsScreen({ onInputCapture }) {
   async function doSetDefault(name) {
     try {
       ctx.set({ yes: true, json: true });
+      await yieldToInk();
       await captureOutput(() => runVaultSetDefault(name));
       ctx.set({ yes: false, json: false });
       reload();
@@ -95,6 +96,7 @@ export default function VaultsScreen({ onInputCapture }) {
   async function doRemove(vault) {
     try {
       ctx.set({ yes: true, json: true });
+      await yieldToInk();
       await captureOutput(() => runVaultRemove(vault.name));
       ctx.set({ yes: false, json: false });
       setCursor(0);
@@ -154,6 +156,7 @@ export default function VaultsScreen({ onInputCapture }) {
 
     try {
       ctx.set({ yes: true, json: true });
+      await yieldToInk();
       await captureOutput(() => runVaultAdd(name, url, { private: isPrivate }));
       ctx.set({ yes: false, json: false });
       reload();
