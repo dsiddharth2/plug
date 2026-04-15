@@ -44,6 +44,19 @@ if (process.argv.length <= 2) {
 }
 
 async function launchTui() {
+  if (!process.stdin.isTTY) {
+    console.error(
+      "plug requires an interactive terminal (TTY).\n" +
+      "It cannot be rendered here — this looks like a non-TTY context such as:\n" +
+      "  - Claude Code's Bash tool\n" +
+      "  - a piped shell (e.g. `plug | cat`, `plug < /dev/null`)\n" +
+      "  - a CI runner\n" +
+      "  - a VS Code task runner\n" +
+      "Run plug directly in a terminal (Windows Terminal, PowerShell, bash, etc.)."
+    );
+    process.exit(1);
+  }
+
   const { resolveStdin } = await import('./tui/utils/resolve-stdin.js');
   let inputStream;
   try {
