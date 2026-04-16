@@ -10,6 +10,7 @@ import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
 import { pkgVersion } from '../utils/pkg-version.js';
 import { resolve } from '../utils/resolver.js';
+import { parseFrontmatter } from '../utils/frontmatter.js';
 
 export function registerInstall(program) {
   program
@@ -216,7 +217,7 @@ export async function runInstall(name, options = {}) {
       isGlobal,
     );
 
-    if (isRoot) rootInstallInfo = { type, destPath, version };
+    if (isRoot) rootInstallInfo = { type, destPath, version, hookRequired: installInfo.hookRequired };
   }
 
   // Record reverse-dependency edges
@@ -226,17 +227,12 @@ export async function runInstall(name, options = {}) {
   }
 
   // Output
-  const { type, destPath, version } = rootInstallInfo ?? { type: 'command', destPath: '', version: pkgVersion };
+  const { type, destPath, version, hookRequired } = rootInstallInfo ?? { type: 'command', destPath: '', version: pkgVersion, hookRequired: false };
 
   if (ctx.json) {
-    process.stdout.write(JSON.stringify({
-      status: 'installed',
-      name: pkgName,
-      type,
-      vault: vault.name,
-      version,
-      path: destPath,
-    }) + '\n');
+    const out = { status: 'installed', name: pkgName, type, vault: vault.name, version, path: destPath };
+    if (hookRequired) out.hookRequired = true;
+    process.stdout.write(JSON.stringify(out) + '\n');
   } else {
     console.log(chalk.green(`✓ Installed ${pkgName} (${type}) from ${vault.name}`));
     console.log(chalk.cyan(`  Path: ${destPath}`));
@@ -246,6 +242,9 @@ export async function runInstall(name, options = {}) {
       console.log(chalk.cyan(`  Usage: The agent '${pkgName}' is available for delegation`));
     } else {
       console.log(chalk.cyan(`  Usage: /${pkgName}`));
+    }
+    if (hookRequired) {
+      console.log(chalk.yellow(`⚠ Hook required: '${pkgName}' expects a hook in settings.json`));
     }
   }
 }
@@ -320,7 +319,10 @@ async function installSinglePackage(pkgSpec, isGlobal) {
     throw err;
   }
 
-  return { type, destPath, version: meta.version || pkg.version || pkgVersion };
+  const fm = type === 'skill' ? parseFrontmatter(content) : {};
+  const hookRequired = !!(fm.hook || fm.hooks);
+
+  return { type, destPath, version: meta.version || pkg.version || pkgVersion, hookRequired };
 }
 
 /**
