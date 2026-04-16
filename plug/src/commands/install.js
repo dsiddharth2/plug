@@ -4,11 +4,12 @@ import fs from 'fs/promises';
 import { confirm, select } from '@inquirer/prompts';
 import { findPackage, findAllPackages } from '../utils/registry.js';
 import { downloadFile } from '../utils/fetcher.js';
-import { trackInstall, isInstalled, getInstalled } from '../utils/tracker.js';
+import { trackInstall, isInstalled, getInstalled, addDependents } from '../utils/tracker.js';
 import { getClaudeSkillsDir, getClaudeAgentsDir, getClaudeDirForType, ensureDir } from '../utils/paths.js';
 import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
 import { pkgVersion } from '../utils/pkg-version.js';
+import { resolve } from '../utils/resolver.js';
 
 export function registerInstall(program) {
   program
@@ -124,42 +125,179 @@ export async function runInstall(name, options = {}) {
     }
   }
 
-  // Download meta.json + entry file
-  const dlSpinner = createSpinner(`Downloading ${pkgName}...`);
-  let meta;
-  let content;
-  try {
+  // Resolve dependency plan
+  const plan = await resolve(pkgName, vault.name, { global: isGlobal });
+
+  // Show plan summary and prompt when there are deps to install
+  if (!ctx.json && plan.toInstall.length > 1) {
+    console.log(chalk.cyan(`\nDependency plan for '${pkgName}':`));
+    console.log(chalk.white(`  Will install (${plan.toInstall.length}):`));
+    for (const n of plan.toInstall) {
+      const label = n === pkgName ? '' : chalk.dim(' (dependency)');
+      console.log(`    - ${n}${label}`);
+    }
+    if (plan.alreadySatisfied.length > 0) {
+      console.log(chalk.dim(`  Already satisfied: ${plan.alreadySatisfied.join(', ')}`));
+    }
+    if (!ctx.yes) {
+      const proceed = await confirm({ message: 'Proceed? (Y/n)', default: true });
+      if (!proceed) {
+        if (ctx.json) {
+          process.stdout.write(JSON.stringify({ status: 'aborted', name: pkgName }) + '\n');
+        } else {
+          console.log(chalk.yellow('Aborted.'));
+        }
+        return;
+      }
+    }
+  }
+
+  // Build ordered install list — always include root even if resolver returned empty
+  const installOrder = [...plan.toInstall];
+  if (!installOrder.includes(pkgName)) {
+    installOrder.push(pkgName);
+  }
+
+  // Build pkgSpec map: root is already resolved; deps need lookup
+  const pkgSpecMap = new Map();
+  pkgSpecMap.set(pkgName, { pkg, vault, rawBaseUrl: pkg.rawBaseUrl ?? null });
+
+  for (const depName of installOrder) {
+    if (depName === pkgName || pkgSpecMap.has(depName)) continue;
+    try {
+      const depMatches = await findAllPackages(depName);
+      if (depMatches.length > 0) {
+        const { pkg: depPkg, vault: depVault } = depMatches[0];
+        pkgSpecMap.set(depName, { pkg: depPkg, vault: depVault, rawBaseUrl: depPkg.rawBaseUrl ?? null });
+      }
+    } catch {
+      // Skip unresolvable deps silently
+    }
+  }
+
+  // Root's direct dependency names (for tracking)
+  const rootDirectDeps = (pkg.dependencies ?? []).map(d => (typeof d === 'string' ? d : d.name));
+
+  // Install each package in dep-first order
+  let rootInstallInfo = null;
+  for (const entryName of installOrder) {
+    const entrySpec = pkgSpecMap.get(entryName);
+    if (!entrySpec) {
+      verbose(`Skipping '${entryName}' — not found in any vault`);
+      continue;
+    }
+
+    const isRoot = entryName === pkgName;
+    const dlSpinner = createSpinner(`Downloading ${entryName}...`);
+    let installInfo;
+    try {
+      installInfo = await installSinglePackage(entrySpec, isGlobal);
+      dlSpinner.stop();
+    } catch (err) {
+      dlSpinner.stop();
+      throw err;
+    }
+
+    const { type, destPath, version } = installInfo;
+    const directDeps = isRoot
+      ? rootDirectDeps
+      : (entrySpec.pkg.dependencies ?? []).map(d => (typeof d === 'string' ? d : d.name));
+
+    await trackInstall(
+      entryName,
+      {
+        type,
+        vault: entrySpec.vault.name,
+        version,
+        path: destPath,
+        installed_as: isRoot ? 'explicit' : 'dependency',
+        dependencies: directDeps,
+      },
+      isGlobal,
+    );
+
+    if (isRoot) rootInstallInfo = { type, destPath, version };
+  }
+
+  // Record reverse-dependency edges
+  for (const depName of installOrder) {
+    if (depName === pkgName) continue;
+    await addDependents(depName, [pkgName], isGlobal);
+  }
+
+  // Output
+  const { type, destPath, version } = rootInstallInfo ?? { type: 'command', destPath: '', version: pkgVersion };
+
+  if (ctx.json) {
+    process.stdout.write(JSON.stringify({
+      status: 'installed',
+      name: pkgName,
+      type,
+      vault: vault.name,
+      version,
+      path: destPath,
+    }) + '\n');
+  } else {
+    console.log(chalk.green(`✓ Installed ${pkgName} (${type}) from ${vault.name}`));
+    console.log(chalk.cyan(`  Path: ${destPath}`));
+    if (type === 'skill') {
+      console.log(chalk.cyan(`  Usage: The skill '${pkgName}' is available in your Claude project`));
+    } else if (type === 'agent') {
+      console.log(chalk.cyan(`  Usage: The agent '${pkgName}' is available for delegation`));
+    } else {
+      console.log(chalk.cyan(`  Usage: /${pkgName}`));
+    }
+  }
+}
+
+/**
+ * Downloads and writes a single package to disk. Branches on rawBaseUrl for community packages.
+ * Returns { type, destPath, version }.
+ */
+async function installSinglePackage(pkgSpec, isGlobal) {
+  const { pkg, vault, rawBaseUrl } = pkgSpec;
+  const pkgName = pkg.name;
+
+  let meta, content;
+
+  if (rawBaseUrl) {
+    // Community package: fetch via raw base URL directly
+    try {
+      const resp = await fetch(`${rawBaseUrl}/${pkg.path}/meta.json`);
+      if (resp.ok) {
+        meta = await resp.json();
+      } else {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+    } catch {
+      meta = { type: pkg.type, entry: `${pkgName}.md`, version: pkg.version };
+    }
+    const entryFile = meta.entry || `${pkgName}.md`;
+    const entryResp = await fetch(`${rawBaseUrl}/${pkg.path}/${entryFile}`);
+    if (!entryResp.ok) throw new Error(`Failed to download ${pkgName}: HTTP ${entryResp.status}`);
+    content = await entryResp.text();
+  } else {
+    // Official vault: use downloadFile helper
     try {
       verbose(`Fetching meta.json from ${vault.name}`);
       const metaContent = await downloadFile(vault, `${pkg.path}/meta.json`);
       meta = JSON.parse(metaContent);
     } catch {
-      // Fall back to registry data if meta.json is unavailable
       verbose('meta.json unavailable, falling back to registry data');
-      meta = {
-        type: pkg.type,
-        entry: `${pkgName}.md`,
-        version: pkg.version,
-      };
+      meta = { type: pkg.type, entry: `${pkgName}.md`, version: pkg.version };
     }
-
     const entryFile = meta.entry || `${pkgName}.md`;
     verbose(`Downloading entry file: ${entryFile}`);
     content = await downloadFile(vault, `${pkg.path}/${entryFile}`);
-    dlSpinner.stop();
-  } catch (err) {
-    dlSpinner.stop();
-    throw err;
   }
 
   // Route to correct directory by type
   const entryFile = meta.entry || `${pkgName}.md`;
   const type = meta.type || pkg.type || 'command';
   let destPath;
+
   if (type === 'skill') {
-    // Migrate any legacy flat .claude/skills/SKILL.md before writing new skill
     await migrateLegacyFlatSkillFile(getClaudeSkillsDir(isGlobal), isGlobal);
-    // Each skill gets its own subdir: .claude/skills/<name>/SKILL.md
     const skillSubdir = path.join(getClaudeSkillsDir(isGlobal), pkgName);
     await ensureDir(skillSubdir);
     destPath = path.join(skillSubdir, 'SKILL.md');
@@ -182,34 +320,7 @@ export async function runInstall(name, options = {}) {
     throw err;
   }
 
-  // Track in installed.json
-  const version = meta.version || pkg.version || pkgVersion;
-  await trackInstall(
-    pkgName,
-    { type, vault: vault.name, version, path: destPath },
-    isGlobal,
-  );
-
-  if (ctx.json) {
-    process.stdout.write(JSON.stringify({
-      status: 'installed',
-      name: pkgName,
-      type,
-      vault: vault.name,
-      version,
-      path: destPath,
-    }) + '\n');
-  } else {
-    console.log(chalk.green(`✓ Installed ${pkgName} (${type}) from ${vault.name}`));
-    console.log(chalk.cyan(`  Path: ${destPath}`));
-    if (type === 'skill') {
-      console.log(chalk.cyan(`  Usage: The skill '${pkgName}' is available in your Claude project`));
-    } else if (type === 'agent') {
-      console.log(chalk.cyan(`  Usage: The agent '${pkgName}' is available for delegation`));
-    } else {
-      console.log(chalk.cyan(`  Usage: /${pkgName}`));
-    }
-  }
+  return { type, destPath, version: meta.version || pkg.version || pkgVersion };
 }
 
 /**
@@ -255,9 +366,9 @@ async function migrateLegacyFlatSkillFile(skillsDir, isGlobal) {
   // Update manifest: find the record pointing at the old path and update it
   try {
     const data = await getInstalled(isGlobal);
-    for (const [name, record] of Object.entries(data.installed || {})) {
+    for (const [recName, record] of Object.entries(data.installed || {})) {
       if (record.path === legacyPath) {
-        await trackInstall(name, { ...record, path: newPath }, isGlobal);
+        await trackInstall(recName, { ...record, path: newPath }, isGlobal);
         break;
       }
     }
