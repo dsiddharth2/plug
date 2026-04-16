@@ -238,3 +238,89 @@ All mocks clean. Resolver mock defaults to empty `toInstall` so existing tests a
 ## Summary
 
 Phase 3 correctly wires the Phase 2 resolver into the install flow and adds a TUI plan screen for multi-dependency installs. The `installSinglePackage` extraction is clean. Dependency ordering, tracking, and reverse-edge recording all follow spec. The TUI plan screen is well-structured with proper scope toggle, cancel flow, and double-confirm guard. One MEDIUM (dead code in abort path) and two LOWs (silent catch, stale closure in useCallback). None are blocking. Full test suite green with 8 new targeted tests. Approved.
+
+---
+---
+
+# Sprint 3 Phase 4 — Dependent Check, Cascade/Force, Orphan Pruning
+
+**Reviewer:** plug-reviewer
+**Date:** 2026-04-16
+**Verdict:** APPROVED
+
+> Cumulative review — covers Phases 1-4 changes.
+
+---
+
+## HIGH
+(none)
+
+## MEDIUM
+- **Duplicate unlink/error-handling block** — remove.js:66-79 and remove.js:100-113 are identical file-deletion + EACCES/ENOENT handling. Consider extracting a `_unlinkSafe(path)` helper to eliminate the duplication. Not blocking since both paths are tested and correct, but it's a maintenance hazard if error handling ever needs to change.
+- **`removeDependentEdge` argument order may confuse** — remove.js:84 calls `removeDependentEdge(name, dep, isGlobal)` where `name` is the package being removed and `dep` is each dependent. The tracker function signature is `removeDependentEdge(fromName, toName, global)` which reads as "remove fromName from toName's dependents array". Semantically correct (removing `name` from each dependent's list), but the loop variable `dep` at the call site makes it look inverted. A rename to `dependent` would clarify.
+
+## LOW
+- **No `--json` path for the dependent prompt** — When `ctx.json` is true, the `select()` prompt from `@inquirer/prompts` still fires interactively (line 45). JSON-mode callers (scripts, CI) would hang. Not in scope for this phase, but worth a future issue: in JSON mode, default to force or error out rather than prompting.
+- **`_pruneOrphans` recursion depth** — Each orphan removal calls `runRemove` which calls `_pruneOrphans` again. In practice the depth is bounded by the dependency tree size, but a pathological graph could hit stack limits. Acceptable for now.
+
+---
+
+## Task 4.1 — remove.js
+
+### Dependent check
+- `dependents = pkg.dependents ?? []` at line 42, defensive against records missing the field. Correct.
+- Prompt fires only when `dependents.length > 0 && !options._cascade` (line 44). The `_cascade` guard prevents infinite re-prompting on recursive calls. Clean design.
+
+### Cancel
+- Returns early (line 55). No side effects. Correct.
+
+### Cascade
+- Iterates `dependents` array, calls `runRemove(dep, { global: isGlobal, _cascade: true })` for each (lines 58-60). ONE level deep — the recursive call has `_cascade: true` so it skips its own dependents prompt and falls through to the normal remove path. Correct.
+- After dependents are removed, falls through to remove the target (lines 99-124). Correct ordering: dependents first, then target.
+
+### Force
+- Deletes file, calls `trackRemove(name, isGlobal)`, then `removeDependentEdge(name, dep, isGlobal)` for each dependent (lines 82-85). Does NOT remove dependent packages — only severs the edges. Correct per spec.
+- Has its own output path (JSON and CLI) and returns after `_pruneOrphans`. No fall-through to the normal path. Correct.
+
+### Orphan pruning
+- `_pruneOrphans(isGlobal)` called after every successful remove (lines 94, 124). Correct — fires for normal, cascade, and force paths.
+- `ctx.yes` check skips the `confirm()` prompt and auto-prunes. Correct.
+- Orphan removal goes through `runRemove` so it gets full treatment (file deletion + tracker update). Correct.
+
+### Error handling
+- EACCES/EPERM throws with a user-friendly message. ENOENT silently continues (file already gone). Other errors re-thrown. Same pattern as pre-existing code. Correct.
+
+---
+
+## Task 4.2 — remove.test.js
+
+All 6 required test cases present:
+
+1. **Dependents trigger prompt** — verifies `select` called when dependents exist; message contains dependent name.
+2. **Cancel leaves both** — verifies both files exist and both tracker records intact after cancel.
+3. **Cascade removes target + dependents** — verifies both files deleted, both tracker records removed.
+4. **Force removes only target + severs edges** — verifies target file deleted, dependent file intact; target removed from tracker, dependent's `dependents` array no longer contains target.
+5. **Orphan prompt fires** — verifies `confirm` called when orphaned dependency exists after remove; orphan kept when user declines.
+6. **`--yes` auto-prunes** — verifies `confirm` NOT called; orphan auto-removed from tracker.
+
+Mock setup is clean: `@inquirer/prompts` mocked at module level with `vi.mock`; `select` and `confirm` mocks reset via `vi.clearAllMocks()` in `beforeEach`. `ctx.reset()` in both `beforeEach` and `afterEach` ensures no state leakage between tests.
+
+No issues found.
+
+---
+
+## Cross-cutting Checks
+
+- **Tests green:** 287/287 pass across 27 test files. Zero failures, zero skipped.
+- **Commit history:** `5959da2` (feat) + `ca0b9b1` (progress) — clean, messages match plan.
+- **Files changed:** `remove.js`, `remove.test.js`, `progress.json` — all in scope. No scope creep.
+- **No `CLAUDE.md` or `.fleet-task.md` committed.**
+- **Phase 1 not regressed:** Tracker tests (16 cases) still pass.
+- **Phase 2 not regressed:** Resolver tests (9 cases) still pass.
+- **Phase 3 not regressed:** Install + TUI tests still pass. No install files modified.
+
+---
+
+## Summary
+
+Phase 4 correctly implements dependent checking with three user-selectable paths (cancel/cascade/force) and automatic orphan pruning. The `_cascade` flag is an elegant solution to prevent recursive prompt loops. All three prompt paths and the orphan pruning flow are covered by well-isolated tests. Two MEDIUMs (duplicate unlink block, confusing variable name at call site) and two LOWs (no JSON-mode guard on prompt, recursion depth). None are blocking. Full test suite green at 287 tests with no regressions across Phases 1-3. Approved.
