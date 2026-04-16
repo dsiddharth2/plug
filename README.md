@@ -56,15 +56,15 @@ Claude Code extensions (Skills, Commands, and Agents) are Markdown files. Plug s
 
 ---
 
-## 🔮 Vision & Roadmap: Claude Native Integration
+## 🔮 Vision & Roadmap: The Road to v1.0
 
-We are building a zero-latency, native integration with Claude Code. Soon, you'll be able to manage your extensions directly from within a Claude conversation:
+We are moving towards a decentralized, dependency-aware ecosystem. Our roadmap is divided into three key phases:
 
-*   **`/plug` Slash Command**: A smart, terminal-native installer that avoids the need to switch windows.
-*   **Natural Language Discovery**: "Claude, I need a tool for security audits" — Claude finds the right package from the vault and installs it instantly.
-*   **One-Click Management**: Update and remove packages through interactive Claude panels.
+*   **Phase A: Dependency Resolution**: Moving from single-package installs to full closure resolution using a DFS resolver.
+*   **Phase B: Community Marketplace**: Enabling any developer to publish from their own repo via automated frontmatter indexing.
+*   **Phase C: Claude Native Integration**: A zero-latency installer that works directly within Claude conversations.
 
-View the full [Claude Integration Vision](docs/project/vision-claude-integration.md).
+View the detailed [Ecosystem Vision & Roadmap](docs/project/ecosystem-vision.md).
 
 ---
 

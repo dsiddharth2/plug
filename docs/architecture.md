@@ -92,14 +92,17 @@ Plug acts as the **unified harness**:
 *   **Unified Pathing**: Extensions are routed to standard Claude Code directories (`.claude/skills/`, etc.) based on their type, ensuring Claude can always find them.
 *   **Global vs. Project Scoping**: Plug manages the complexity of global (`~/.claude/`) vs. project-specific (`.claude/`) installation, preventing duplicate configurations and ensuring a clean development environment.
 
-## Current vs. Future Capabilities
+## Current vs. Future Capabilities (Sprints 1-3+)
 
-| Feature | Today (Built) | Target (Vision) |
+| Feature | Today (Built — Sprints 1 & 2) | Target (Vision — Sprint 3+) |
 |---|---|---|
 | **Installation** | Single-package | Full Dependency Resolution (DFS) |
-| **Marketplace** | Official Registry | Multi-repo Community Index |
+| **Marketplace** | Official Registry (`registry.json`) | Decentralized Community Index |
+| **Publishing** | Manual Metadata (`meta.json`) | Auto-indexing via Frontmatter |
 | **Search** | TUI Text Search | AI-powered Natural Language |
-| **Governance** | Manual Vault Add | Auto-discovery of community vaults |
+| **Governance** | Manual Vault Registration | Auto-discovery of Community Vaults |
+
+See the full [Ecosystem Vision](project/ecosystem-vision.md) for a detailed roadmap of these phases.
 
 ## Security
 
