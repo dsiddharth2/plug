@@ -38,6 +38,15 @@ export default function PackageList({
   const [internalToggled, setInternalToggled] = useState(new Set());
   const { columns: terminalWidth } = useTerminalSize();
 
+  // Reset cursor when items change (e.g. search/filter)
+  React.useEffect(() => {
+    setCursor(0);
+    setScrollOffset(0);
+    if (onCursorChange) {
+      onCursorChange(0, items.length > 0 ? items[0] : null);
+    }
+  }, [items, onCursorChange]);
+
   const toggled = externalToggled !== undefined ? externalToggled : internalToggled;
 
   // Lines per item: 2 if has description or path (installed mode), else 1

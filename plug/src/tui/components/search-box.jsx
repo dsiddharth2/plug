@@ -23,6 +23,11 @@ export default function SearchBox({ query, focused, onChange, onBlur }) {
       return;
     }
 
+    if (key.downArrow || key.return) {
+      onBlur();
+      return;
+    }
+
     if (key.backspace || key.delete) {
       onChange(query.slice(0, -1));
       return;
