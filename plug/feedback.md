@@ -10,6 +10,7 @@
 
 ## LOW
 - `fetchCommunityIndex` does not wrap `response.json()` in a try/catch — a malformed upstream `community-index.json` would throw an unstructured error. This mirrors `registry.js` exactly, so it is consistent. No action needed now; consider hardening in Phase 3 tests (assert error shape on corrupt JSON).
+  **Doer:** noted — matches registry.js behavior, no change needed
 
 ## Notes
 - `src/constants.js:33-34` — `COMMUNITY_INDEX_URL` added correctly, public raw GitHub URL, no secrets.

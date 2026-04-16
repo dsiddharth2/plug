@@ -15,6 +15,7 @@ import { useTerminalSize } from '../hooks/use-terminal-size.js';
  *   toggled?: Set<number>,
  *   onToggle?: (index: number) => void,
  *   installedNames?: Set<string>,
+ *   showDeps?: boolean,
  *   mode?: 'discover'|'installed',
  *   emptyMessage?: string,
  * }} props
@@ -28,6 +29,7 @@ export default function PackageList({
   toggled: externalToggled,
   onToggle,
   installedNames,
+  showDeps = false,
   mode = 'discover',
   emptyMessage = 'No packages found.',
 }) {
@@ -108,6 +110,7 @@ export default function PackageList({
           isCursor={index === cursor}
           isToggled={toggled.has(index)}
           isInstalled={installedNames?.has(item.name) ?? false}
+          showDeps={showDeps}
           mode={mode}
           terminalWidth={terminalWidth}
         />

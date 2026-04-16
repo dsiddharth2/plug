@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getResolveOrder } from '../../utils/config.js';
 import { fetchRegistry, getStaleRegistryCache } from '../../utils/registry.js';
+import { fetchCommunityIndex, getStaleCommunityIndexCache, normalizeCommunityPackage } from '../../utils/community-index.js';
 
 /**
  * Fetches packages from all configured vaults and merges them into a flat list.
@@ -51,6 +52,18 @@ export function usePackages() {
               networkFailCount++;
             }
           }
+        }
+
+        try {
+          const communityIndex = await fetchCommunityIndex();
+          all.push(...(communityIndex.packages ?? []).map(normalizeCommunityPackage));
+        } catch {
+          const stale = await getStaleCommunityIndexCache();
+          if (stale) {
+            all.push(...(stale.packages ?? []).map(normalizeCommunityPackage));
+            staleFallbackCount++;
+          }
+          // Do NOT increment networkFailCount — community failure is non-blocking.
         }
 
         if (!cancelled) {
