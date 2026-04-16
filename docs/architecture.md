@@ -2,6 +2,15 @@
 
 Plug is a package manager for Claude Code extensions, designed to be lightweight, decentralized, and accessible through both a CLI and a native Claude Code Skill.
 
+## Why Plug? (The Value Proposition)
+
+In a corporate or team environment, maintaining consistency in Claude's behavior is critical. Plug addresses this by providing:
+
+1.  **Centralized Governance**: Define "Vaults" (registries) that house your organization's coding standards, security rules, and architectural guidelines.
+2.  **Private Ecosystems**: Support for private GitHub repositories allows companies to distribute proprietary skills and agents securely using standard GitHub authentication (PAT).
+3.  **Anti-Bloat Architecture**: One "harness" (Plug) manages all your extensions. You no longer need to manually sync Markdown files or maintain redundant harnesses across multiple projects.
+4.  **Community Knowledge**: The official `plugvault` provides a curated set of community best practices that can be shared and improved collectively.
+
 ## High-Level Design
 
 Plug operates on a "Vault" model. A Vault is any GitHub repository that follows a simple registry structure.
@@ -14,7 +23,12 @@ Plug operates on a "Vault" model. A Vault is any GitHub repository that follows 
 
 ## Core Components
 
-### 1. Execution Engines
+### 1. Vault Ecosystem (PlugVault)
+A "Vault" is the unit of distribution. While the official `plugvault` repository serves as the primary community registry, Plug is designed to be multi-vault. Users can register any number of public or private vaults.
+*   **Resolution Order**: Plug searches vaults in a user-defined order, allowing internal corporate packages to override or supplement community versions.
+*   **Decentralization**: No central server is required; all package metadata and content live on GitHub.
+
+### 2. Execution Engines
 
 #### Claude Code Skill (Recommended)
 The Skill is the primary interface for most users. It runs directly within Claude Code, using Claude's native tools (`Bash`, `Read`, `Write`) to:

@@ -6,11 +6,23 @@
 
 **Plug** is a package manager for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). It allows you to share, discover, and install reusable skills, commands, and agents across your projects via a rich, interactive Terminal User Interface (TUI).
 
+## Why Plug?
+
+Managing Claude Code extensions (Skills, Commands, and Agents) manually can quickly become unmanageable. Plug solves several key problems:
+
+*   **Corporate & Private Ecosystems**: Easily set up internal "Vaults" (GitHub repositories) to share proprietary coding standards, security guardrails, and specialized agents within your organization.
+*   **Consolidated Management**: Instead of maintaining multiple harnesses or manually copying Markdown files across different projects, Plug provides a single tool to discover, install, and update everything.
+*   **PlugVault Ecosystem**: Access a centralized, growing registry of community-contributed extensions through the official `plugvault`, or add your own custom vaults.
+*   **Zero-Bloat Workflow**: Keep your projects clean by installing only what you need, either locally to a project (`.claude/`) or globally (`~/.claude/`).
+
 ---
 
 ## 🚀 Quick Start: The Plug TUI
 
 The recommended way to use Plug is through its interactive TUI. It allows you to browse, search, and batch-install extensions without remembering complex commands.
+
+![Plug TUI Screenshot](docs/images/tui-screenshot.png)
+*(A rich, interactive interface for managing your Claude extensions)*
 
 ### 1. Install Plug
 Install as a Claude Code skill (recommended, no Node.js required):
@@ -41,6 +53,18 @@ Claude Code extensions (Skills, Commands, and Agents) are Markdown files. Plug s
 *   **Skills** — Background context that shapes Claude's behavior (coding standards, architecture rules).
 *   **Commands** — Custom actions invoked with `/command-name` (code review, test generation).
 *   **Agents** — Specialized sub-agents for delegation (research, long-running analysis).
+
+---
+
+## 🔮 Vision & Roadmap: Claude Native Integration
+
+We are building a zero-latency, native integration with Claude Code. Soon, you'll be able to manage your extensions directly from within a Claude conversation:
+
+*   **`/plug` Slash Command**: A smart, terminal-native installer that avoids the need to switch windows.
+*   **Natural Language Discovery**: "Claude, I need a tool for security audits" — Claude finds the right package from the vault and installs it instantly.
+*   **One-Click Management**: Update and remove packages through interactive Claude panels.
+
+View the full [Claude Integration Vision](docs/project/vision-claude-integration.md).
 
 ---
 
