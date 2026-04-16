@@ -1,71 +1,64 @@
+# Plug
+
 [![CI](https://github.com/dsiddharth2/plug/actions/workflows/ci.yml/badge.svg)](https://github.com/dsiddharth2/plug/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-18%2B-brightgreen.svg)](https://nodejs.org)
-[![npm](https://img.shields.io/npm/v/plugvault.svg)](https://www.npmjs.com/package/plugvault)
 
-# PlugVault
-
-A package manager for Claude Code. Install reusable skills, commands, and agents into any project from GitHub-hosted registries.
+**Plug** is a package manager for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). It allows you to share, discover, and install reusable skills, commands, and agents across your projects via a rich, interactive Terminal User Interface (TUI).
 
 ---
 
-## What is this?
+## 🚀 Quick Start: The Plug TUI
 
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) supports three types of extensions:
+The recommended way to use Plug is through its interactive TUI. It allows you to browse, search, and batch-install extensions without remembering complex commands.
 
-- **Skills** (`.claude/skills/*.md`) — background context that shapes how Claude works in your project. Think coding standards, API patterns, architecture rules.
-- **Commands** (`.claude/commands/*.md`) — on-demand actions you invoke with `/command-name`. Think code review, test generation, documentation.
-- **Agents** (`.claude/agents/*.md`) — specialized sub-agents that Claude can delegate tasks to via the `Agent` tool. Think background research, long-running analysis, parallel workstreams.
-
-These are just markdown files. `plug` makes it easy to share, discover, and install them across projects — like npm, but for `.md` files.
-
----
-
-## Quick Start
-
-### Skill (Recommended)
-
-Install plug as a Claude Code skill — no Node.js required:
-
+### 1. Install Plug
+Install as a Claude Code skill (recommended, no Node.js required):
 ```bash
 bash <(curl -sf https://raw.githubusercontent.com/dsiddharth2/plug/main/plug/skill/install.sh)
 ```
+*Or via npm for the CLI:* `npm install -g plugvault`
 
-Then open any Claude Code session and run `/plug` to browse and install packages interactively, or just ask Claude in plain English: _"install the code-review package"_.
-
-### CLI (Alternative)
-
-For scripted environments or CI pipelines:
-
+### 2. Launch the TUI
+Simply run the command to enter the interactive browser:
 ```bash
-npm install -g plugvault
-plug init
-plug install code-review
+/plug  # If installed as a skill
+plug   # If installed via npm
 ```
 
-For full documentation on CLI commands, flags, vaults, and authentication, see the [CLI README](plug/README.md).
+### 3. Browse & Install
+*   **Navigate**: Use `Arrows` to move through the package list.
+*   **Search**: Press `/` to search by name or tags.
+*   **Select**: Press `Space` to select multiple packages.
+*   **Install**: Press `Enter` to install everything in your queue.
 
 ---
 
-## Creating Packages
+## What is Plug?
 
-To publish skills, commands, or agents to a vault:
+Claude Code extensions (Skills, Commands, and Agents) are Markdown files. Plug simplifies managing these files, making it as easy as using `npm` for Node.js.
 
-1. **Learn the package format** — see the [Skill Authoring Guide](plug/docs/authoring-guide.md) for structure, meta.json schema, and templates
-2. **Create your package** — write the `.md` content and `meta.json` metadata
-3. **Test locally** — use `plug install` to verify your package works
-4. **Submit to a vault** — open a PR to the vault's registry
+*   **Skills** — Background context that shapes Claude's behavior (coding standards, architecture rules).
+*   **Commands** — Custom actions invoked with `/command-name` (code review, test generation).
+*   **Agents** — Specialized sub-agents for delegation (research, long-running analysis).
+
+---
+
+## Documentation
+
+*   **[TUI Guide](docs/features/tui.md)** — Detailed breakdown of the interactive interface and hotkeys.
+*   **[Architecture](docs/architecture.md)** — How Plug works under the hood (including our Context-Aware Capture system).
+*   **[Authoring Guide](docs/authoring-guide.md)** — Learn how to create and publish your own packages.
+*   **[Vaults & Registries](docs/features/vaults.md)** — Managing public and private package sources.
 
 ---
 
 ## Contributing
 
-Development setup and code style guidelines — see [CONTRIBUTING.md](plug/CONTRIBUTING.md).
-
-To contribute packages to the official vault, see the [vault CONTRIBUTING guide](https://github.com/dsiddharth2/plugvault/blob/main/CONTRIBUTING.md).
+We welcome contributions! Please see our [Contributing Guidelines](plug/CONTRIBUTING.md) for details on how to get involved.
 
 ---
 
 ## License
 
-MIT
+MIT © [Siddharth](https://github.com/dsiddharth2)

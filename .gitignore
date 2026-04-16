@@ -1,2 +1,57 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+.eslintcache
+.stylelintcache
+.prettiercache
+.next
+.nuxt
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.vscode-test
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env.local
+
+# Build
+dist/
+build/
+out/
+lib/
+coverage/
+*.lcov
+.cache/
+.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+.Spotlight-V100
+.Trashes
+
+# Tools
 CLAUDE.md
 .fleet-task.md
+.gemini/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+plug/.plugvault/
+plug/node_modules/
+plug/dist/
+plug/coverage/

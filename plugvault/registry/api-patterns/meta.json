@@ -1,9 +1,0 @@
-{
-  "name": "api-patterns",
-  "type": "skill",
-  "version": "1.0.0",
-  "description": "Enforces consistent API design patterns",
-  "author": "plugvault",
-  "tags": ["api", "rest", "design", "patterns"],
-  "entry": "api-patterns.md"
-}
