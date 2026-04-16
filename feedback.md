@@ -1,90 +1,53 @@
-# Sprint 3 — Dep Resolution Plan Review (Re-review)
+# Sprint 3 Phase 1 — Tracker Review
 
 **Reviewer:** plug-reviewer
 **Date:** 2026-04-16
 **Verdict:** APPROVED
 
-> Re-review after doer addressed two HIGH findings from initial review (commit f4d8b53).
-> Doer fixes landed in commit 85364d5: `docs: revise plan — addDependents merge semantics + cascade flag definition`.
+> Cumulative review — covers plan review + Phase 1 changes.
 
 ---
 
-## HIGH #1 Resolution: `addDependents` merge semantics — RESOLVED
+## Task 1.1 — tracker.js
 
-All five required changes verified in the revised PLAN.md:
+All requirements met:
 
-1. **Task 1.1** (line 19): Function renamed from `updateDependents` to `addDependents`. Specification now reads "merges (not overwrites) newDependents into data.installed[name].dependents (deduplicate)." Explicit multi-parent example included.
-2. **Task 1.1 done criteria** (line 25): Updated to "addDependents uses merge/dedup semantics."
-3. **Task 1.2** (lines 32-34): Two new test cases added — multi-parent append scenario (install A then B both depending on X → X.dependents = ['A', 'B']) and dedup scenario (calling twice with same name produces no duplicate). Test count updated from 5 to 7.
-4. **Task 3.1 step 5** (line 120): Call site changed from `updateDependents` to `addDependents`.
-5. **Task 3.1 done criteria** (line 124): References `addDependents`.
+- **`trackInstall` persists new fields:** `installed_as`, `dependencies`, `dependents` are set at lines 52-54, with correct defaults (`'explicit'`, `[]`, `[]`). The spread order is correct — explicit fields override any same-named keys from `...metadata`.
+- **Backward-compat normalisation:** `prunableOrphans` (line 93) uses `rec.installed_as ?? 'explicit'` and `rec.dependents ?? []`. `addDependents` (line 70) uses `rec.dependents ?? []`. `removeDependentEdge` (line 107) uses `rec.dependents ?? []`. All read paths that touch these fields have null-coalescing guards, so pre-existing records without the new fields won't break.
+- **`addDependents` merge/dedup semantics:** Line 71 uses `[...new Set([...existing, ...newDependents])]` — this correctly merges and deduplicates. Multi-parent scenario (X depends on A, then B added) preserves both. No overwrite bug.
+- **`getInstalledRecord`:** Returns `data.installed[name] ?? null` (line 83). Correct.
+- **`prunableOrphans`:** Filters `installed_as === 'dependency'` AND `dependents.length === 0` (line 93). Uses backward-compat normalisation. Correct.
+- **`removeDependentEdge`:** Filters out `fromName` from `toName`'s dependents array (line 107). Early return on missing record. Saves after mutation. Correct.
+- **Early-return guards:** Both `addDependents` (line 69) and `removeDependentEdge` (line 106) return early if the target record doesn't exist. Good defensive coding.
 
-**Risk register** (line 242): New row added for the multi-parent overwrite risk with merge/dedup mitigation and Task 1.2 test reference.
-
-No remaining concerns. The merge/dedup semantics are unambiguous and the multi-parent test case will catch regressions.
-
----
-
-## HIGH #2 Resolution: `_cascade` flag definition — RESOLVED
-
-Task 4.1 (lines 165-169) now fully defines the cascade mechanism:
-
-1. **Flag definition**: "`_cascade` definition: boolean flag passed in the options object. When `true`, it means 'this call was initiated by a cascade — skip the user prompt and proceed with removal immediately.'"
-2. **Depth rule**: "Depth: one level only — when `_cascade: true`, the called `runRemove` will skip the prompt for that dependent's own dependents (they are not removed). This is intentional shallow cascade."
-3. **Guard clause**: The prompt condition now reads `if dependents.length > 0 and !options._cascade` — cascade calls bypass the prompt.
-4. **Future scope**: "If deep transitive removal is needed, that is a future enhancement."
-
-The three flows (Cancel / Cascade / Force) are now fully distinct and unambiguous:
-- **Cancel**: return early, no changes.
-- **Cascade (shallow)**: remove direct dependents (with `_cascade: true` to skip re-prompt), then remove target. One level deep.
-- **Force**: remove target only, sever edges via `removeDependentEdge`. Dependents left in place.
-
-Done criteria (line 173) updated to include "_cascade flag skips re-prompt correctly."
-
-No remaining concerns.
+No issues found.
 
 ---
 
-## Non-blocking Recommendations — Status
+## Task 1.2 — tracker.test.js
 
-| Recommendation | Status |
-|----------------|--------|
-| Add 9th test case to Task 2.3: verify `getInstalled` called exactly once | ADOPTED — line 94, test count updated to 9 |
-| Add `addDependents` overwrite risk to risk register | ADOPTED — line 242 |
-| Risk register row 1: reference Task 2.3 spy test | ADOPTED — line 241 updated |
-| Task 3.1 step 6: mention `mockResolvedValueOnce` pattern | Not explicitly in task text; covered in risk register line 245. Acceptable. |
+All 7 required test cases present and correctly implemented:
+
+1. **`trackInstall` with `installed_as: 'dependency'`** — verifies persistence of all three new fields.
+2. **`trackInstall` default** — verifies `installed_as` defaults to `'explicit'` when omitted.
+3. **`addDependents` multi-parent accumulation** — installs with `dependents: ['pkg-a']`, then calls `addDependents` with `['pkg-b']`, asserts result is `['pkg-a', 'pkg-b']`. This is the critical multi-parent test that validates merge semantics.
+4. **`addDependents` dedup** — calls `addDependents` twice with `['pkg-a']` on a record that already has `['pkg-a']`, asserts no duplicate.
+5. **`addDependents` single-record isolation** — installs two packages, mutates one, verifies the other is unaffected.
+6. **`prunableOrphans` subset** — installs an orphan dep, a non-orphan dep, and an explicit package. Verifies only the orphan is returned. Correct boundary testing.
+7. **`removeDependentEdge` back-reference** — installs with two dependents, removes one, verifies only the other remains.
+
+Tests are appended to the existing `tracker.test.js` (not a new file). Imports updated at line 21 to include all four new functions. Existing 9 tests unaffected.
+
+No issues found.
 
 ---
 
-## Full Checklist Re-pass
+## Test Results
 
-| # | Check | Verdict |
-|---|-------|---------|
-| 1 | Clear "done" criteria | PASS |
-| 2 | High cohesion / low coupling | PASS |
-| 3 | Shared abstractions earliest | PASS |
-| 4 | Riskiest assumption validated early | PASS |
-| 5 | Later tasks reuse early abstractions | PASS |
-| 6 | 2-3 tasks per phase + VERIFY | PASS |
-| 7 | Each task completable in one session | PASS |
-| 8 | Dependencies satisfied in order | PASS |
-| 9 | No vague / ambiguous tasks | PASS (both HIGHs resolved) |
-| 10 | No hidden dependencies | PASS |
-| 11 | Risk register present and complete | PASS (6 risks, all with mitigations) |
-| 12 | Aligned with requirements.md | PASS |
-
-## Sprint 3-Specific Concerns Re-pass
-
-| Concern | Verdict |
-|---------|---------|
-| Phase 2: DFS prevents per-node `getInstalled()` | PASS — Task 2.3 now has spy-based call-count test |
-| Phase 3: `rawBaseUrl` branch condition | PASS — unchanged, clear |
-| Phase 3: `ctx.set()` timing constraint | PASS — unchanged, clear |
-| Phase 3: mock layering instruction | PASS — risk register covers `mockResolvedValueOnce` |
-| Phase 4: cascade/force/cancel flows distinct | PASS — all three fully specified with depth rule |
+**264/264 tests pass** across 26 test files. Zero failures, zero skipped. No regressions.
 
 ---
 
 ## Summary
 
-Both HIGH findings from the initial review have been properly resolved. The plan is now unambiguous on `addDependents` merge semantics and `_cascade` shallow-removal behavior. Three of four non-blocking recommendations were adopted directly; the fourth is adequately covered by the risk register. All 12 checklist items pass. Plan is approved for execution.
+Phase 1 implementation is clean, correct, and complete. All four tracker helpers match the PLAN.md specification exactly. The `addDependents` merge/dedup semantics — the critical requirement from the plan review's HIGH finding — are correctly implemented using `Set` deduplication. Backward-compat normalisation is consistently applied across all read paths. All 7 new test cases cover the right scenarios including the multi-parent accumulation test that guards against the overwrite bug identified in the plan review. Full test suite green. Approved for Phase 2.
