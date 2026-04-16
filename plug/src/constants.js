@@ -29,3 +29,6 @@ export const OFFICIAL_VAULT = {
   branch: DEFAULT_BRANCH,
   private: false,
 };
+
+export const COMMUNITY_INDEX_URL =
+  'https://raw.githubusercontent.com/dsiddharth2/plugvault/main/community-index.json'

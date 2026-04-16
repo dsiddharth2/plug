@@ -26,6 +26,7 @@ export default function PackageItem({
   isCursor,
   isToggled,
   isInstalled = false,
+  showDeps = false,
   mode = 'discover',
   terminalWidth = 80,
 }) {
@@ -42,10 +43,14 @@ export default function PackageItem({
     ? ` → v${item.latestVersion} ⬆`
     : '';
 
+  const depStr = item.depCount > 0
+    ? ` · ★ ${item.depCount} dep${item.depCount === 1 ? '' : 's'}`
+    : ' · no deps';
+
   // Prefix: "[ ] > " = 6 chars
   const prefixLen = 6;
   const suffixLen = (typeLabel ? typeLabel.length + 1 : 0) + (scopeLabel ? scopeLabel.length + 1 : 0);
-  const nameLine = `${item.name} · ${item.vault}${versionStr ? ` · ${versionStr}` : ''}${updateStr}`;
+  const nameLine = `${item.name} · ${item.vault}${versionStr ? ` · ${versionStr}` : ''}${updateStr}${showDeps ? depStr : ''}`;
   const maxNameLen = terminalWidth - prefixLen - suffixLen - 2;
   const truncatedName = nameLine.length > maxNameLen
     ? nameLine.slice(0, maxNameLen - 1) + '…'

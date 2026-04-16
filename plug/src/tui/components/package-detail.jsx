@@ -13,7 +13,9 @@ import { getClaudeDirForType } from '../../utils/paths.js';
  *   isInstalled?: boolean,
  * }} props
  */
-export default function PackageDetail({ pkg, onBack, onInstall, isInstalled = false }) {
+export default function PackageDetail({ pkg, onBack, onInstall, installedNames = new Set() }) {
+  const isInstalled = installedNames.has(pkg.name);
+
   useInput((input, key) => {
     if (key.escape) {
       onBack();
@@ -70,6 +72,33 @@ export default function PackageDetail({ pkg, onBack, onInstall, isInstalled = fa
           <Text dimColor>{installPath}</Text>
         </Box>
       </Box>
+
+      {pkg.dependencies?.length > 0 && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text bold>Dependencies:</Text>
+          {pkg.dependencies.map(dep => (
+            <Box key={dep.name} paddingLeft={2}>
+              <Text dimColor>{dep.required ? '•' : '○'} </Text>
+              <Text>{dep.name}</Text>
+              <Text dimColor> ({dep.vault})</Text>
+              {installedNames.has(dep.name)
+                ? <Text color="green">  ✓ installed</Text>
+                : <Text dimColor>  not installed</Text>}
+            </Box>
+          ))}
+          {pkg.dependencies.filter(d => d.required && !installedNames.has(d.name)).length > 0 && (
+            <Box marginTop={1}>
+              <Text dimColor>Installing this will also install: </Text>
+              <Text>
+                {pkg.dependencies
+                  .filter(d => d.required && !installedNames.has(d.name))
+                  .map(d => d.name)
+                  .join(', ')}
+              </Text>
+            </Box>
+          )}
+        </Box>
+      )}
 
       {/* Usage hint */}
       {isInstalled ? (

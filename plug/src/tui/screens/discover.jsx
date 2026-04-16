@@ -193,7 +193,7 @@ export default function DiscoverScreen({ onInputCapture }) {
         pkg={selectedPkg}
         onBack={handleDetailBack}
         onInstall={handleDetailInstall}
-        isInstalled={installedNames.has(selectedPkg.name)}
+        installedNames={installedNames}
       />
     );
   }
@@ -264,6 +264,7 @@ export default function DiscoverScreen({ onInputCapture }) {
         toggled={toggled}
         onToggle={handleToggle}
         installedNames={installedNames}
+        showDeps={true}
         emptyMessage={emptyMessage}
       />
 
