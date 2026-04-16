@@ -1,0 +1,43 @@
+{
+  "_schema": {
+    "type": "work | verify",
+    "status": "pending | completed | blocked"
+  },
+  "project": "plug",
+  "plan_file": "PLAN.md",
+  "sprint": "community-discover",
+  "branch": "sprint/community-discover",
+  "base_branch": "main",
+  "created": "2026-04-16",
+  "tasks": [
+    { "id": "1.1", "phase": 1, "step": "Add COMMUNITY_INDEX_URL constant to src/constants.js",                                                                       "type": "work",   "status": "pending", "tier": "cheap",    "commit": "", "notes": "" },
+    { "id": "1.2", "phase": 1, "step": "Create src/utils/community-index.js with getCachedCommunityIndex, cacheCommunityIndex, getStaleCommunityIndexCache, fetchCommunityIndex, normalizeCommunityPackage", "type": "work", "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "1.V", "phase": 1, "step": "VERIFY Phase 1: npm test green; smoke exports; commit+push 'feat(community-index): add fetch + cache util'",                 "type": "verify", "status": "pending", "tier": "cheap",    "commit": "", "notes": "" },
+
+    { "id": "2.1", "phase": 2, "step": "Merge community packages in use-packages.js load() after vault loop, isolated try/catch, no networkFailCount increment",     "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "2.2", "phase": 2, "step": "Add dep count to package-item.jsx with showDeps prop guard",                                                                  "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "2.3", "phase": 2, "step": "Add dep list to package-detail.jsx; change isInstalled:boolean → installedNames:Set<string>; audit all render sites",        "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "2.4", "phase": 2, "step": "Thread installedNames + showDeps props in discover.jsx (and installed.jsx if needed)",                                        "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "2.V", "phase": 2, "step": "VERIFY Phase 2: npm test; manual TUI 800+ packages; search subagent ★6 deps; search senior-engineer no deps; dep detail view; commit+push 'feat(discover): merge community packages into Discover tab'", "type": "verify", "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+
+    { "id": "3.1", "phase": 3, "step": "Create tests/community-index.test.js covering all cache, fetch, and normalize functions",                                     "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "3.2", "phase": 3, "step": "Extend tests/tui/discover.test.jsx with community package rendering, dep count display, dep detail, and community failure isolation cases", "type": "work", "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "3.V", "phase": 3, "step": "VERIFY Phase 3: npm test all green; offline failure simulation; regression check for Sprint 1 fixes; commit+push 'test: community-index cache + normaliser + discover integration'", "type": "verify", "status": "pending", "tier": "standard", "commit": "", "notes": "" }
+  ],
+  "plan_review": {
+    "registry_pattern_confirmed": true,
+    "community_index_url_absent": true,
+    "use_packages_load_structure": "async load() inside useEffect: calls getResolveOrder(), loops vaults with fetchRegistry()/getStaleRegistryCache() fallback, networkFailCount/staleFallbackCount declared inside load(), sorts+sets packages after loop, then checks error/warning conditions",
+    "package_detail_prop_sites": [],
+    "installed_jsx_uses_package_detail": false,
+    "test_files_exist": {
+      "community_index": false,
+      "discover": true
+    },
+    "flags": [
+      "package-item.jsx nameLine currently wraps versionStr with ' · ' separator inline: `${versionStr ? ` · ${versionStr}` : ''}${updateStr}` — PLAN.md Task 2.2 shows `${versionStr}${showDeps ? depStr : ''}` without the separator handling; implementor must preserve the existing separator logic when inserting depStr",
+      "installed.jsx does NOT import or use <PackageDetail> — it has its own local InstalledDetail sub-component; Task 2.3 prop signature change (isInstalled→installedNames) only affects discover.jsx; installed.jsx requires NO changes",
+      "discover.jsx currently passes isInstalled={installedNames.has(selectedPkg.name)} to PackageDetail (line 196) — this is the exact prop that Task 2.4 must change to installedNames={installedNames}; confirmed call site matches plan"
+    ]
+  }
+}
