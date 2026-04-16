@@ -136,3 +136,105 @@ No issues found.
 ## Summary
 
 Phase 2 implementation is correct, complete, and well-tested. The resolver correctly builds a merged package map (community-wins), calls `getInstalled` exactly once per resolution, and performs DFS with proper cycle detection, optional-dep skipping, and topological ordering. All 9 test cases cover the specified scenarios. Full test suite green with no regressions. Approved for Phase 3.
+
+---
+---
+
+# Sprint 3 Phase 3 — Install Wiring + TUI Plan Screen Review
+
+**Reviewer:** plug-reviewer
+**Date:** 2026-04-16
+**Verdict:** APPROVED
+
+> Cumulative review — covers Phase 1 + Phase 2 + Phase 3 changes.
+
+---
+
+## HIGH
+(none)
+
+## MEDIUM
+- Dead code: JSON abort output unreachable — install.js:144-146 — The outer guard at L132 is `if (!ctx.json && plan.toInstall.length > 1)`, so `ctx.json` is guaranteed false inside. The `if (ctx.json)` branch at L144 can never execute. Collapse to just the `console.log(chalk.yellow('Aborted.'))` path.
+
+## LOW
+- Silent dep skip on resolver lookup failure — install.js:173 — Empty `catch` silently drops deps that `findAllPackages` can't resolve. Acceptable for now, but a `verbose()` log inside the catch would aid debugging without changing behavior.
+- `doInstall` closure in `useCallback` — discover.jsx:170 — `handlePlanConfirm` captures `doInstall` (a plain function recreated each render) but the dep array only lists `[installQueue]`. Safe in practice because `doInstall` only uses stable refs/setters and takes `queue` as a param, but `eslint-plugin-react-hooks` exhaustive-deps would flag it. Not blocking.
+
+---
+
+## Task 3.1 — install.js
+
+### `installSinglePackage` extraction
+- Clean extraction. Branches on `rawBaseUrl` presence for community vs official download path. Returns `{ type, destPath, version }` — well-defined contract.
+- Community path uses raw `fetch()`; official path uses `downloadFile` helper. Both have meta.json fallback on failure. Correct.
+
+### Resolver wiring
+- `resolve(pkgName, vault.name, { global: isGlobal })` called at L129, after package lookup and overwrite prompt, before any downloads. Correct ordering.
+- `vaultHint` parameter from Phase 2's LOW finding is now consumed — `vault.name` passed through. Good follow-through.
+
+### Dependency install loop
+- `installOrder` built from `plan.toInstall` with a guard at L157 that appends root if missing. Defensive and correct.
+- `pkgSpecMap` pre-resolves all deps via `findAllPackages` before the install loop begins. Lookup failures silently skipped (see LOW above).
+- Loop iterates dep-first order. Each package: download → trackInstall → next. Root gets `installed_as: 'explicit'`; deps get `installed_as: 'dependency'`. Both include `dependencies: [direct dep names]`. Correct per spec.
+
+### Reverse-dependency edges
+- `addDependents(depName, [pkgName], isGlobal)` called for each non-root dep after all installs complete. Root correctly excluded from addDependents calls. Correct.
+
+### Already-satisfied handling
+- Deps in `plan.alreadySatisfied` are never in `plan.toInstall` (resolver contract from Phase 2), so they are naturally skipped — no re-download, no re-track. Correct.
+
+---
+
+## Task 3.2 — install-plan.jsx (new component)
+
+- Props: `{ queue, plan, loading, onConfirm(scope), onCancel }` — well-typed via JSDoc.
+- Loading state renders spinner. Plan state renders "Will install" list + "Already satisfied" list + scope selector + footer.
+- `confirmedRef` prevents double-confirm on fast key repeats — good defensive pattern.
+- Tab toggles scope between `'project'` and `'global'`. `[i]`/`[y]`/Enter confirms; Esc cancels. All input blocked during loading. Correct.
+- `queueMap` lookup provides vault/type info for display. Falls back gracefully if a dep isn't in the original queue.
+
+---
+
+## Task 3.3 — discover.jsx
+
+- `'plan'` state added to `DiscoverView` union type.
+- `startInstall` now runs resolver first, shows plan screen only when `plan.toInstall.length > 1`. Single-package installs bypass plan screen — current behavior preserved. Correct.
+- Resolver failure falls back to direct install (L163-167). Good defensive behavior.
+- `ctx.set({ yes: true, json: true })` called only inside `doInstall()` after confirm — NOT during resolver async phase. This prevents flag leakage if the user cancels from the plan screen. Verified.
+- `handlePlanConfirm` passes `scope` through to `doInstall` as `{ global: scope === 'global' }`. Correct.
+- `handlePlanCancel` resets all state and returns to list view. Correct.
+
+---
+
+## Tests
+
+### install.test.js (4 new tests)
+1. **Resolver call** — verifies `resolve` called with `pkgName`, vault name, and `{ global: false }`.
+2. **Dep tracking** — verifies deps get `installed_as: 'dependency'` and root gets `installed_as: 'explicit'`.
+3. **Reverse edges** — verifies `addDependents` called for deps with root as dependent; NOT called for root itself.
+4. **Already-satisfied skip** — verifies satisfied deps are not downloaded or tracked.
+
+### discover.test.jsx (4 new tests)
+1. **Plan view for multi-dep** — verifies "Will install" text appears.
+2. **Skip plan for no-dep** — verifies "Will install" does NOT appear; goes straight to installing.
+3. **Tab toggles scope** — verifies `◉ Project` → Tab → `◉ Global`.
+4. **Esc returns to list** — verifies plan view dismissed, list restored.
+
+All mocks clean. Resolver mock defaults to empty `toInstall` so existing tests are unaffected.
+
+---
+
+## Cross-cutting Checks
+
+- **Tests green:** 281/281 pass across 27 test files. Zero failures, zero skipped.
+- **Commit history:** `bcc3a52` is the single Phase 3 commit. Message matches plan.
+- **Files changed:** `install.js`, `install-plan.jsx` (new), `discover.jsx`, `install.test.js`, `discover.test.jsx`, `progress.json` — all in scope.
+- **No `CLAUDE.md` or `.fleet-task.md` committed.**
+- **Phase 1 not regressed:** Tracker tests (16 cases) still pass. Tracker functions used correctly.
+- **Phase 2 not regressed:** Resolver tests (9 cases) still pass. `resolve()` integrated correctly with `vaultHint` now consumed.
+
+---
+
+## Summary
+
+Phase 3 correctly wires the Phase 2 resolver into the install flow and adds a TUI plan screen for multi-dependency installs. The `installSinglePackage` extraction is clean. Dependency ordering, tracking, and reverse-edge recording all follow spec. The TUI plan screen is well-structured with proper scope toggle, cancel flow, and double-confirm guard. One MEDIUM (dead code in abort path) and two LOWs (silent catch, stale closure in useCallback). None are blocking. Full test suite green with 8 new targeted tests. Approved.
