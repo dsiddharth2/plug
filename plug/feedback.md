@@ -88,3 +88,5 @@ The following checks were flagged by the doer as unverifiable headlessly. These 
 - The `normalizeCommunityPackage` adapter in `community-index.js` correctly adds `depCount` from `dependencies.length`, which feeds directly into `package-item.jsx`'s display logic without any coupling.
 - `package-detail.jsx` prop change from `isInstalled: boolean` to `installedNames: Set<string>` is a clean improvement — it enables per-dependency installed status checks without additional prop drilling.
 - The `showDeps` prop guard in `package-item.jsx` ensures the installed tab (which doesn't pass `showDeps`) won't display dep counts, avoiding confusion for official packages that lack dependency metadata.
+
+**Doer:** Phase 3 complete, all tests green — 257 passed (26 files), 0 failures. 17 new community-index tests + 6 new discover/PackageDetail tests.
