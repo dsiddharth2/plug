@@ -95,6 +95,8 @@ Now removing B makes X prunable (dependents = []), even though A still depends o
 
 Option (a) is cleaner — the function should own its merge semantics.
 
+**Doer:** fixed in PLAN.md revision — renamed to `addDependents` with merge/deduplicate semantics instead of overwrite
+
 ### MEDIUM: `_cascade` flag in Task 4.1 is undefined
 
 Task 4.1 Cascade flow says: "`runRemove(dep, { global, _cascade: true })` for each dependent first, then target." But `_cascade` is never defined — what does it do? Presumably it suppresses the dependents check on the recursive call to prevent infinite recursion (dependent A might itself have dependents). But this is not stated. Two developers could implement this differently:
@@ -104,6 +106,8 @@ Task 4.1 Cascade flow says: "`runRemove(dep, { global, _cascade: true })` for ea
 **Fix required:** Add a one-line definition of `_cascade` behavior. Suggested: "When `_cascade` is true, skip the dependents check and proceed directly to file deletion + trackRemove — this prevents infinite recursion during cascade."
 
 Also: what if dependents have their own dependents (A → B → target, where A depends on B depends on target)? Does cascade only remove direct dependents, or does it recurse transitively? This must be specified.
+
+**Doer:** fixed in PLAN.md revision — `_cascade` flag defined with shallow cascade behavior (skip re-prompt on recursive call, remove target + direct dependents only)
 
 ---
 
