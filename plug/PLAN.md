@@ -16,25 +16,27 @@
   - Persist three new fields in `trackInstall`: `installed_as: metadata.installed_as ?? 'explicit'`, `dependencies: metadata.dependencies ?? []`, `dependents: metadata.dependents ?? []`
   - Normalise on any read path touching `rec.installed_as`: `rec.installed_as ?? 'explicit'`
   - Add four new exported functions:
-    - `updateDependents(name, dependents, global)` — overwrites `data.installed[name].dependents`; saves
+    - `addDependents(name, newDependents, global)` — **merges** (not overwrites) `newDependents` into `data.installed[name].dependents` (deduplicate); saves. Merge semantics are required: if package X is a dependency of both A and B, `addDependents('X', ['B'], global)` must preserve A in X's dependents list, not erase it.
     - `getInstalledRecord(name, global)` — returns `data.installed[name] ?? null`
     - `prunableOrphans(global)` — returns names where `installed_as === 'dependency' && dependents.length === 0`
     - `removeDependentEdge(fromName, toName, global)` — removes `fromName` from `data.installed[toName].dependents`; saves
 - **Files:** `src/utils/tracker.js`
 - **Tier:** standard
-- **Done when:** `trackInstall` persists new fields; all four helpers exported and functional; backward-compat normalisation in place
+- **Done when:** `trackInstall` persists new fields; all four helpers exported and functional; `addDependents` uses merge/dedup semantics; backward-compat normalisation in place
 - **Blockers:** Read current `src/utils/tracker.js` and `src/utils/tracker.test.js` before modifying — match file-write patterns exactly
 
 #### Task 1.2: Extend tests/tracker.test.js
 - **Change:** Add test cases (do NOT create a new file):
   - `trackInstall` with `installed_as: 'dependency'` persists correctly
   - `trackInstall` without `installed_as` defaults to `'explicit'`
-  - `updateDependents` mutates only the targeted record
+  - `addDependents` appends to existing dependents (multi-parent case: install A then install B both depending on X → X.dependents = ['A', 'B'], not just ['B'])
+  - `addDependents` deduplicates (calling twice with same name produces no duplicate)
+  - `addDependents` mutates only the targeted record (other records unaffected)
   - `prunableOrphans` returns correct subset
   - `removeDependentEdge` removes back-reference correctly
 - **Files:** `tests/tracker.test.js`
 - **Tier:** standard
-- **Done when:** all five new test cases pass; existing tests unaffected
+- **Done when:** all seven new test cases pass; existing tests unaffected
 - **Blockers:** none
 
 #### VERIFY: Phase 1
@@ -89,9 +91,10 @@
   - Optional dep (`required: false`) NOT added to `toInstall`
   - Unknown package in deps → silently skipped, no crash
   - All deps already installed → `toInstall: [pkg]`, `alreadySatisfied: [all deps]`
+  - `getInstalled` called exactly once per `resolve()` invocation (spy on `getInstalled`, assert call count = 1 even for multi-dep graphs)
 - **Files:** `tests/resolver.test.js` (new)
 - **Tier:** standard
-- **Done when:** all 8 test cases pass
+- **Done when:** all 9 test cases pass
 - **Blockers:** none
 
 #### VERIFY: Phase 2
@@ -114,11 +117,11 @@
      - If CLI path and `plan.toInstall.length > 1`: print plan summary; if `!ctx.yes`, prompt "Proceed? (Y/n)"
   3. Loop `plan.toInstall` in order, calling `installSinglePackage(entry, isGlobal)` for each
   4. Track each dep with `installed_as: 'dependency'`; root with `installed_as: 'explicit'`; both include `dependencies: [direct dep names]`
-  5. After all installs: call `updateDependents(dep.name, [pkgName], isGlobal)` for each dep
+  5. After all installs: call `addDependents(dep.name, [pkgName], isGlobal)` for each dep
   6. Add `vi.mock('../src/utils/resolver.js', () => ({ resolve: vi.fn().mockResolvedValue({ toInstall: [], alreadySatisfied: [], cycles: [] }) }))` at top of `tests/install.test.js`
 - **Files:** `src/commands/install.js`, `tests/install.test.js`
 - **Tier:** premium
-- **Done when:** resolver called on install; deps tracked as `installed_as: 'dependency'`; root as `'explicit'`; `updateDependents` called; already-satisfied deps skipped; `installSinglePackage` branches on `rawBaseUrl`
+- **Done when:** resolver called on install; deps tracked as `installed_as: 'dependency'`; root as `'explicit'`; `addDependents` called; already-satisfied deps skipped; `installSinglePackage` branches on `rawBaseUrl`
 - **Blockers:** Read current install.js fully before modifying — identify where to inject resolver call and where `trackInstall` is called
 
 #### Task 3.2: New TUI component src/tui/components/install-plan.jsx
@@ -159,14 +162,15 @@
 #### Task 4.1: Add dependent check + cascade/force/prune to remove.js
 - **Change:** In `src/commands/remove.js` after loading `pkg`:
   1. `const dependents = pkg.dependents ?? []`
-  2. If `dependents.length > 0`: `select` prompt (Cancel / Remove all cascade / Force remove)
-     - Cancel: return early
-     - Cascade: `runRemove(dep, { global, _cascade: true })` for each dependent first, then target
-     - Force: delete target file + `trackRemove(name)` + `removeDependentEdge(name, dep, global)` for each dependent
-  3. After any successful remove: call `prunableOrphans(isGlobal)`; if orphans exist and `!ctx.yes`: prompt to prune; if yes: `runRemove` each orphan
+  2. If `dependents.length > 0` **and** `!options._cascade`: `select` prompt (Cancel / Remove all cascade / Force remove)
+     - `_cascade` definition: boolean flag passed in the options object. When `true`, it means "this call was initiated by a cascade — skip the user prompt and proceed with removal immediately." This is what prevents infinite re-prompting when removing dependents recursively.
+     - **Cancel:** return early.
+     - **Cascade (shallow):** For each name in `dependents`, call `runRemove(dep, { global, _cascade: true })`. Then remove the original target. Depth: one level only — when `_cascade: true`, the called `runRemove` will skip the prompt for that dependent's own dependents (they are not removed). This is intentional shallow cascade. If deep transitive removal is needed, that is a future enhancement.
+     - **Force:** delete target file + `trackRemove(name)` + `removeDependentEdge(name, dep, global)` for each dependent. Does NOT remove the dependent packages — just severs the edge and removes the target.
+  3. After any successful remove: call `prunableOrphans(isGlobal)`; if orphans exist and `!ctx.yes`: prompt to prune; if yes: `runRemove` each orphan (without `_cascade`)
 - **Files:** `src/commands/remove.js`
 - **Tier:** standard
-- **Done when:** dependents check fires; Cancel/Cascade/Force all work; orphan prune prompt fires; `--yes` auto-prunes
+- **Done when:** dependents check fires; `_cascade` flag skips re-prompt correctly; Cancel/Cascade/Force all work per definitions above; orphan prune prompt fires; `--yes` auto-prunes
 - **Blockers:** Read current remove.js fully before modifying
 
 #### Task 4.2: Extend tests/remove.test.js
@@ -234,7 +238,8 @@
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| resolver.js calls `isInstalled()` per-node — file read on every dep | HIGH | Load `getInstalled()` once per `resolve()` call, pass snapshot into DFS. Covered by test: verify only 1 `getInstalled` call per resolve |
+| resolver.js calls `isInstalled()` per-node — file read on every dep | HIGH | Load `getInstalled()` once per `resolve()` call, pass snapshot into DFS. Covered by test (Task 2.3): verify exactly 1 `getInstalled` call per resolve invocation |
+| `addDependents`/`addDependents` overwrite semantics — multi-parent packages lose dependents | HIGH | Use merge/append semantics in `addDependents` (dedup). Multi-parent test in Task 1.2 covers this. |
 | Community package install path: `rawBaseUrl` + `entry` instead of vault owner/repo | HIGH | `installSinglePackage` branches on `pkgSpec.rawBaseUrl` presence. Intentional vault-abstraction bypass for Sprint 3; B3 adapter tightens in future sprint |
 | `ctx.set({ yes, json })` called during resolver async phase (plan view) — state pollution | MED | `ctx.set` must only be inside `doInstall()`, called after user confirms. Test: mock resolver to be slow; assert ctx not mutated until confirm |
 | install.test.js mock layering — existing mocks + new resolver mock clash | MED | Add `vi.mock('../src/utils/resolver.js', ...)` at top of install.test.js. Per-test override via `resolve.mockResolvedValueOnce(...)` |
