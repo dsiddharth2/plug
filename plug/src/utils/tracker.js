@@ -42,15 +42,69 @@ async function saveInstalled(data, global = false) {
 /**
  * Records a package as installed.
  * @param {string} name
- * @param {object} metadata - { type, vault, version, path, installedAt }
+ * @param {object} metadata - { type, vault, version, path, installedAt, installed_as, dependencies, dependents }
  * @param {boolean} global
  */
 export async function trackInstall(name, metadata, global = false) {
   const data = await getInstalled(global);
   data.installed[name] = {
     ...metadata,
+    installed_as: metadata.installed_as ?? 'explicit',
+    dependencies: metadata.dependencies ?? [],
+    dependents: metadata.dependents ?? [],
     installedAt: metadata.installedAt || new Date().toISOString(),
   };
+  await saveInstalled(data, global);
+}
+
+/**
+ * Merges newDependents into data.installed[name].dependents (dedup); saves.
+ * @param {string} name
+ * @param {string[]} newDependents
+ * @param {boolean} global
+ */
+export async function addDependents(name, newDependents, global = false) {
+  const data = await getInstalled(global);
+  const rec = data.installed[name];
+  if (!rec) return;
+  const existing = rec.dependents ?? [];
+  const merged = [...new Set([...existing, ...newDependents])];
+  rec.dependents = merged;
+  await saveInstalled(data, global);
+}
+
+/**
+ * Returns data.installed[name] ?? null.
+ * @param {string} name
+ * @param {boolean} global
+ */
+export async function getInstalledRecord(name, global = false) {
+  const data = await getInstalled(global);
+  return data.installed[name] ?? null;
+}
+
+/**
+ * Returns names where installed_as === 'dependency' && dependents.length === 0.
+ * @param {boolean} global
+ */
+export async function prunableOrphans(global = false) {
+  const data = await getInstalled(global);
+  return Object.entries(data.installed)
+    .filter(([, rec]) => (rec.installed_as ?? 'explicit') === 'dependency' && (rec.dependents ?? []).length === 0)
+    .map(([name]) => name);
+}
+
+/**
+ * Removes fromName from data.installed[toName].dependents; saves.
+ * @param {string} fromName
+ * @param {string} toName
+ * @param {boolean} global
+ */
+export async function removeDependentEdge(fromName, toName, global = false) {
+  const data = await getInstalled(global);
+  const rec = data.installed[toName];
+  if (!rec) return;
+  rec.dependents = (rec.dependents ?? []).filter(d => d !== fromName);
   await saveInstalled(data, global);
 }
 

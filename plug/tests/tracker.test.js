@@ -18,7 +18,7 @@ vi.mock('../src/utils/paths.js', async (importOriginal) => {
   };
 });
 
-const { getInstalled, trackInstall, trackRemove, isInstalled } = await import('../src/utils/tracker.js');
+const { getInstalled, trackInstall, trackRemove, isInstalled, addDependents, getInstalledRecord, prunableOrphans, removeDependentEdge } = await import('../src/utils/tracker.js');
 
 describe('tracker utils', () => {
   beforeEach(async () => {
@@ -82,5 +82,59 @@ describe('tracker utils', () => {
     await trackInstall('code-review', { type: 'command', vault: 'official', version: '1.0.0', path: '/p' }, true);
     expect(await isInstalled('code-review', true)).toBe(true);
     expect(await isInstalled('code-review', false)).toBe(false);
+  });
+
+  it('trackInstall with installed_as: dependency persists correctly', async () => {
+    await trackInstall('dep-pkg', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p', installed_as: 'dependency' }, false);
+    const data = await getInstalled(false);
+    expect(data.installed['dep-pkg'].installed_as).toBe('dependency');
+    expect(data.installed['dep-pkg'].dependencies).toEqual([]);
+    expect(data.installed['dep-pkg'].dependents).toEqual([]);
+  });
+
+  it('trackInstall without installed_as defaults to explicit', async () => {
+    await trackInstall('explicit-pkg', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p' }, false);
+    const data = await getInstalled(false);
+    expect(data.installed['explicit-pkg'].installed_as).toBe('explicit');
+  });
+
+  it('addDependents appends to existing dependents (multi-parent accumulation)', async () => {
+    await trackInstall('shared-dep', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p', dependents: ['pkg-a'] }, false);
+    await addDependents('shared-dep', ['pkg-b'], false);
+    const rec = await getInstalledRecord('shared-dep', false);
+    expect(rec.dependents).toEqual(['pkg-a', 'pkg-b']);
+  });
+
+  it('addDependents deduplicates (calling twice with same name produces no duplicate)', async () => {
+    await trackInstall('dedup-dep', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p', dependents: ['pkg-a'] }, false);
+    await addDependents('dedup-dep', ['pkg-a'], false);
+    await addDependents('dedup-dep', ['pkg-a'], false);
+    const rec = await getInstalledRecord('dedup-dep', false);
+    expect(rec.dependents).toEqual(['pkg-a']);
+  });
+
+  it('addDependents mutates only the targeted record (other records unaffected)', async () => {
+    await trackInstall('target-dep', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p', dependents: [] }, false);
+    await trackInstall('other-pkg', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p', dependents: [] }, false);
+    await addDependents('target-dep', ['pkg-a'], false);
+    const other = await getInstalledRecord('other-pkg', false);
+    expect(other.dependents).toEqual([]);
+  });
+
+  it('prunableOrphans returns packages with installed_as=dependency and no dependents', async () => {
+    await trackInstall('orphan-dep', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p', installed_as: 'dependency', dependents: [] }, false);
+    await trackInstall('needed-dep', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p', installed_as: 'dependency', dependents: ['parent'] }, false);
+    await trackInstall('explicit-root', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p', installed_as: 'explicit', dependents: [] }, false);
+    const orphans = await prunableOrphans(false);
+    expect(orphans).toContain('orphan-dep');
+    expect(orphans).not.toContain('needed-dep');
+    expect(orphans).not.toContain('explicit-root');
+  });
+
+  it('removeDependentEdge removes back-reference correctly', async () => {
+    await trackInstall('dep-with-ref', { type: 'skill', vault: 'official', version: '1.0.0', path: '/p', dependents: ['parent-a', 'parent-b'] }, false);
+    await removeDependentEdge('parent-a', 'dep-with-ref', false);
+    const rec = await getInstalledRecord('dep-with-ref', false);
+    expect(rec.dependents).toEqual(['parent-b']);
   });
 });
