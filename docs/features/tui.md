@@ -4,6 +4,9 @@ Plug features a rich, interactive Terminal User Interface (TUI) built with **Ink
 
 ## Core Features
 
+![Plug TUI Screenshot](../images/tui-screenshot.png)
+*(The interactive TUI for Discover, Installed, and Vaults management)*
+
 *   **Interactive Browsing**: Explore available packages from all your registered vaults.
 *   **Search**: Find packages by name, description, or tags with real-time results.
 *   **Batch Operations**: Select multiple packages for installation or removal.
