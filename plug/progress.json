@@ -1,0 +1,35 @@
+{
+  "_schema": {
+    "type": "work | verify",
+    "status": "pending | completed | blocked"
+  },
+  "project": "plug",
+  "plan_file": "PLAN.md",
+  "sprint": "dep-resolution",
+  "branch": "sprint/dep-resolution",
+  "base_branch": "main",
+  "created": "2026-04-16",
+  "tasks": [
+    { "id": "1.1", "phase": 1, "step": "Extend trackInstall with installed_as/dependencies/dependents fields; add updateDependents, getInstalledRecord, prunableOrphans, removeDependentEdge to tracker.js", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "1.2", "phase": 1, "step": "Extend tests/tracker.test.js with 5 new cases: installed_as persist, default, updateDependents mutation, prunableOrphans subset, removeDependentEdge back-reference", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "1.V", "phase": 1, "step": "VERIFY Phase 1: npm test green; commit 'feat(tracker): extend installed.json with installed_as/dependencies/dependents'; push sprint/dep-resolution", "type": "verify", "status": "pending", "tier": "cheap",    "commit": "", "notes": "" },
+
+    { "id": "2.1", "phase": 2, "step": "Check if community-index.js exists from Sprint 2; if missing create minimal fetch+cache wrapper; if exists confirm fetchCommunityIndex + getStaleCommunityIndexCache exported", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "2.2", "phase": 2, "step": "Create src/utils/resolver.js with buildPackageMap + DFS resolver; load getInstalled once per resolve call; resolve() public API returns { toInstall, alreadySatisfied, cycles }", "type": "work",   "status": "pending", "tier": "premium",  "commit": "", "notes": "" },
+    { "id": "2.3", "phase": 2, "step": "Create tests/resolver.test.js covering 8 cases: no deps, single dep, already installed, transitive, cycle, optional dep, unknown dep, all deps installed", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "2.V", "phase": 2, "step": "VERIFY Phase 2: npm test green; commit 'feat(resolver): add DFS dependency resolver'; push sprint/dep-resolution", "type": "verify", "status": "pending", "tier": "cheap",    "commit": "", "notes": "" },
+
+    { "id": "3.1", "phase": 3, "step": "Refactor install.js: extract installSinglePackage helper (branch on rawBaseUrl); wire resolve() call before download; loop toInstall; track installed_as correctly; call updateDependents; extend tests/install.test.js with resolver mock + dep-tracking cases", "type": "work",   "status": "pending", "tier": "premium",  "commit": "", "notes": "" },
+    { "id": "3.2", "phase": 3, "step": "Create src/tui/components/install-plan.jsx: spinner, will-install list, already-satisfied list, scope selector (Tab toggles), footer [i]/[Esc]", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "3.3", "phase": 3, "step": "Wire 'plan' view state in discover.jsx; plan screen only when toInstall.length > 1; ctx.set only after confirm; extend tests/tui/discover.test.jsx with plan view + scope toggle + cancel cases", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "3.V", "phase": 3, "step": "VERIFY Phase 3: npm test green; manual CLI single-pkg (no plan screen) + multi-dep (plan screen); commit 'feat(install): wire resolver + TUI scope toggle on dep installs only'; push", "type": "verify", "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+
+    { "id": "4.1", "phase": 4, "step": "Wire remove.js: check dependents; select prompt (Cancel/Cascade/Force); cascade removes dependents then target; force removes target only + removeDependentEdge; orphan prune prompt after any remove", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "4.2", "phase": 4, "step": "Extend tests/remove.test.js with 6 cases: dependents trigger prompt, cancel, cascade, force, orphan prompt, --yes auto-prune", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "4.V", "phase": 4, "step": "VERIFY Phase 4: npm test green; manual CLI remove with dependents; commit 'feat(remove): dependent check, cascade/force, orphan pruning'; push", "type": "verify", "status": "pending", "tier": "cheap",    "commit": "", "notes": "" },
+
+    { "id": "5.1", "phase": 5, "step": "Create src/utils/frontmatter.js with parseFrontmatter(); wire into install.js: after writing SKILL.md, parse frontmatter, print hook warning (CLI) or set hookRequired:true (JSON mode)", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "5.2", "phase": 5, "step": "Create tests/frontmatter.test.js with 5 cases: standard parse, no frontmatter, malformed, CRLF, hook field", "type": "work",   "status": "pending", "tier": "standard", "commit": "", "notes": "" },
+    { "id": "5.V", "phase": 5, "step": "VERIFY Phase 5: all tests green; manual hook notice check; regression Sprint 1+2; inspect installed.json; commit 'feat(install): post-install hook notice'; push", "type": "verify", "status": "pending", "tier": "standard", "commit": "", "notes": "" }
+  ]
+}
