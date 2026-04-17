@@ -222,3 +222,51 @@ One HIGH finding blocks approval:
 1. **HIGH — `--cascade`/`--force` documented as CLI flags but are interactive prompt choices.** The README and `features/dependency-resolution.md` both show `plug remove code-review --cascade` and `plug remove code-review --force` as valid CLI invocations. These flags do not exist on the remove command. They must be removed from CLI examples and the remove behavior must be documented as an interactive prompt (Cancel / Cascade / Force) that appears when dependents are detected.
 
 Everything else passes: API signatures are accurate, architecture descriptions match code, decisions are durable trade-off explanations with no transient content, and all five phases are covered. The `parseFrontmatter` api.md note about hook checking is slightly misplaced but low-severity.
+
+---
+
+# Harvest Re-review — 2026-04-17
+
+**Reviewer:** plug-reviewer
+**Date:** 2026-04-17
+**Commits:** d7a7a02, c2c93c1
+**Verdict:** APPROVED
+
+> Re-reviewing after doer addressed the HIGH finding from the Harvest Review.
+
+---
+
+## Prior Finding Resolution
+
+### HIGH — `--cascade`/`--force` documented as CLI flags → RESOLVED
+
+Commit d7a7a02 corrects all four affected files:
+
+1. **README.md:** `--cascade` and `--force` CLI examples removed. Remove section now shows only valid flags (`-g`, `--yes`). Interactive prompt behavior documented as a bullet list: Cancel / Remove all (cascade) / Force remove. Orphan pruning described separately with `--yes` correctly scoped to auto-prune only. **Matches `src/commands/remove.js` lines 10–11 (only `-g, --global` registered) and lines 45–51 (interactive `select` prompt).** ✓
+
+2. **features/dependency-resolution.md:** CLI examples reduced to `plug remove <package>` and `plug remove <package> --yes`. Interactive prompt shown as a formatted block with the three choices. Explicit callout added: "`--cascade` and `--force` are **not** CLI flags." Orphan pruning notes `--yes` as "a global flag." **Matches code.** ✓
+
+3. **api.md:** `parseFrontmatter` description corrected — now reads: "`install.js` checks the returned record for `fm.hook || fm.hooks` to decide whether to emit a hook-required notice. The function itself is a pure parser with no install-specific logic." **Accurate — the check is at `install.js` line 323, not inside `parseFrontmatter`.** ✓
+
+4. **decisions.md:** "Shallow cascade on remove" now reads "The 'Remove all (cascade)' interactive choice" instead of "`--cascade` removes." **Consistent with corrected docs.** ✓
+
+---
+
+## Second-Pass Accuracy Sweep
+
+Re-checked all harvest docs against source for anything missed in the first review:
+
+- **`plug install <package> --json`** (feature doc line 25): `--json` is a registered global option (`index.js` line 17). ✓
+- **`plug install subagent-driven-development --yes`** (README line 46): `--yes` is a registered global option (`index.js` line 18). On install, `ctx.yes` skips the dependency-plan confirmation prompt (`install.js` line 143) and vault-conflict auto-pick (`install.js` line 84). ✓
+- **`plug remove -g code-review`** (README line 55): `-g, --global` is registered on remove (`remove.js` line 11). ✓
+- **Install-plan TUI accepts `y` and `Return` in addition to `i`** (`install-plan.jsx` line 31): docs only mention `[i] Install` in the footer description. The component also accepts `y` and Enter. This is a minor documentation gap but not inaccurate — the footer literally reads `[i] Install`, matching the doc. Acceptable as-is.
+- **`--yes` on remove does NOT bypass the dependent-check select prompt**: README and feature doc correctly scope `--yes` to orphan pruning only. Neither claims it bypasses the cascade/force choice. ✓
+- **No transient content introduced** in the fix commit. No PR numbers, test counts, or line references added. ✓
+
+---
+
+## Summary
+
+All findings from the initial harvest review have been addressed. The corrected docs accurately distinguish between CLI flags (`-g`, `--yes`, `--json`) and interactive prompt choices (cancel/cascade/force). API descriptions now correctly attribute the hook-check logic to `install.js` rather than `parseFrontmatter`. No new inaccuracies found on second pass.
+
+**APPROVED** — harvest docs are ready to merge with the sprint PR.
