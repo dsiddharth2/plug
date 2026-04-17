@@ -199,7 +199,7 @@ export async function runInstall(name, options = {}) {
       throw err;
     }
 
-    const { type, destPath, version } = installInfo;
+    const { type, destPath, version, files } = installInfo;
     const directDeps = isRoot
       ? rootDirectDeps
       : (entrySpec.pkg.dependencies ?? []).map(d => (typeof d === 'string' ? d : d.name));
@@ -211,6 +211,7 @@ export async function runInstall(name, options = {}) {
         vault: entrySpec.vault.name,
         version,
         path: destPath,
+        files,
         installed_as: isRoot ? 'explicit' : 'dependency',
         dependencies: directDeps,
       },
@@ -253,7 +254,7 @@ export async function runInstall(name, options = {}) {
  * Downloads and writes a single package to disk. Branches on rawBaseUrl for community packages.
  * Returns { type, destPath, version }.
  */
-async function installSinglePackage(pkgSpec, isGlobal) {
+export async function installSinglePackage(pkgSpec, isGlobal) {
   const { pkg, vault, rawBaseUrl } = pkgSpec;
   const pkgName = pkg.name;
 
@@ -298,6 +299,7 @@ async function installSinglePackage(pkgSpec, isGlobal) {
 
   let primaryDestPath = '';
   let primaryContent = '';
+  const downloadedFiles = [];
 
   for (const relativePath of filesToDownload) {
     let content;
@@ -331,6 +333,7 @@ async function installSinglePackage(pkgSpec, isGlobal) {
 
     await ensureDir(path.dirname(destPath));
     await fs.writeFile(destPath, content, 'utf8');
+    downloadedFiles.push(destPath);
 
     if (relativePath === entryFile) {
       primaryDestPath = destPath;
@@ -341,7 +344,7 @@ async function installSinglePackage(pkgSpec, isGlobal) {
   const fm = type === 'skill' ? parseFrontmatter(primaryContent) : {};
   const hookRequired = !!(fm.hook || fm.hooks);
 
-  return { type, destPath: primaryDestPath, version: meta.version, hookRequired };
+  return { type, destPath: primaryDestPath, version: meta.version, hookRequired, files: downloadedFiles };
 }
 
 /**

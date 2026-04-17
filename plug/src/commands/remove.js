@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import fs from 'fs/promises';
+import path from 'path';
 import { select, confirm } from '@inquirer/prompts';
 import { getInstalled, trackRemove, prunableOrphans, removeDependentEdge } from '../utils/tracker.js';
 import { ctx, verbose } from '../utils/context.js';
@@ -63,20 +64,17 @@ export async function runRemove(name, options = {}) {
     }
 
     if (choice === 'force') {
-      verbose(`Removing file at ${pkg.path}`);
-      try {
-        await fs.unlink(pkg.path);
-      } catch (err) {
-        if (err.code === 'EACCES' || err.code === 'EPERM') {
-          throw Object.assign(
-            new Error(`Cannot remove '${pkg.path}'. Check permissions.`),
-            { code: err.code },
-          );
+      const filesToRemove = pkg.files && pkg.files.length > 0 ? pkg.files : [pkg.path];
+      for (const filePath of filesToRemove) {
+        verbose(`Removing file at ${filePath}`);
+        try {
+          await fs.unlink(filePath);
+        } catch (err) {
+          if (err.code !== 'ENOENT') {
+            verbose(`Failed to remove ${filePath}: ${err.message}`);
+          }
         }
-        if (err.code !== 'ENOENT') {
-          throw err;
-        }
-        verbose(`File already gone (ENOENT), removing from tracker`);
+        await cleanEmptyParents(filePath);
       }
 
       await trackRemove(name, isGlobal);
@@ -96,20 +94,18 @@ export async function runRemove(name, options = {}) {
     }
   }
 
-  verbose(`Removing file at ${pkg.path}`);
-  try {
-    await fs.unlink(pkg.path);
-  } catch (err) {
-    if (err.code === 'EACCES' || err.code === 'EPERM') {
-      throw Object.assign(
-        new Error(`Cannot remove '${pkg.path}'. Check permissions.`),
-        { code: err.code },
-      );
+  const filesToRemove = pkg.files && pkg.files.length > 0 ? pkg.files : [pkg.path];
+  for (const filePath of filesToRemove) {
+    verbose(`Removing file at ${filePath}`);
+    try {
+      await fs.unlink(filePath);
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        verbose(`Failed to remove ${filePath}: ${err.message}`);
+      }
     }
-    if (err.code !== 'ENOENT') {
-      throw err;
-    }
-    verbose(`File already gone (ENOENT), removing from tracker`);
+    // Always try to clean parents even if unlink failed (e.g. already gone)
+    await cleanEmptyParents(filePath);
   }
 
   await trackRemove(name, isGlobal);
@@ -122,6 +118,35 @@ export async function runRemove(name, options = {}) {
   }
 
   await _pruneOrphans(isGlobal);
+}
+
+/**
+ * Recursively deletes empty parent directories up to (but not including) .claude subdirs.
+ * @param {string} filePath
+ */
+export async function cleanEmptyParents(filePath) {
+  let currentDir = path.dirname(filePath);
+  while (true) {
+    const dirName = path.basename(currentDir);
+    // Stop if we hit one of the core subdirs
+    if (['skills', 'commands', 'agents', '.claude', '.plugvault'].includes(dirName)) break;
+
+    try {
+      const files = await fs.readdir(currentDir);
+      if (files.length === 0) {
+        verbose(`Removing empty directory: ${currentDir}`);
+        await fs.rmdir(currentDir);
+        
+        const parent = path.dirname(currentDir);
+        if (parent === currentDir) break; // Root reached
+        currentDir = parent;
+      } else {
+        break;
+      }
+    } catch {
+      break;
+    }
+  }
 }
 
 async function _pruneOrphans(isGlobal) {
