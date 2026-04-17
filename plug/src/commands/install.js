@@ -257,96 +257,91 @@ async function installSinglePackage(pkgSpec, isGlobal) {
   const { pkg, vault, rawBaseUrl } = pkgSpec;
   const pkgName = pkg.name;
 
-  let meta, content;
-
+  let meta;
   if (rawBaseUrl) {
-    // Community package: fetch via raw base URL directly
     try {
       const metaUrl = rawBaseUrl.endsWith('/')
         ? `${rawBaseUrl}${pkg.path}/meta.json`
         : `${rawBaseUrl}/${pkg.path}/meta.json`;
-      const resp = await fetch(metaUrl);
+      const resp = await fetch(metaUrl.replace(/([^:]\/)\/+/g, '$1'));
       if (resp.ok) {
         meta = await resp.json();
-      } else {
-        // Not a failure if meta.json is missing; we'll fall back to pkg info
-        meta = { type: pkg.type, entry: pkg.entry || `${pkgName}.md`, version: pkg.version };
       }
-    } catch {
-      meta = { type: pkg.type, entry: pkg.entry || `${pkgName}.md`, version: pkg.version };
-    }
-
-    // Determine entry file and final URL
-    // If pkg.entry is a full path from the root of the repo, use it relative to rawBaseUrl
-    // Otherwise, use pkg.path + entryFile
-    let entryFile = meta.entry || pkg.entry || `${pkgName}.md`;
-    let entryUrl;
-
-    if (rawBaseUrl.endsWith('/')) {
-      entryUrl = entryFile.startsWith('/')
-        ? `${rawBaseUrl}${entryFile.slice(1)}`
-        : `${rawBaseUrl}${pkg.path}/${entryFile}`;
-    } else {
-      entryUrl = entryFile.startsWith('/')
-        ? `${rawBaseUrl}${entryFile}`
-        : `${rawBaseUrl}/${pkg.path}/${entryFile}`;
-    }
-
-    // Clean up potential double slashes (except the one after https:)
-    entryUrl = entryUrl.replace(/([^:]\/)\/+/g, '$1');
-
-    verbose(`Downloading community entry file: ${entryUrl}`);
-    const entryResp = await fetch(entryUrl);
-    if (!entryResp.ok) throw new Error(`Failed to download ${pkgName}: HTTP ${entryResp.status} at ${entryUrl}`);
-    content = await entryResp.text();
+    } catch { /* ignore */ }
   } else {
-    // Official vault: use downloadFile helper
     try {
-      verbose(`Fetching meta.json from ${vault.name}`);
       const metaContent = await downloadFile(vault, `${pkg.path}/meta.json`);
       meta = JSON.parse(metaContent);
-    } catch {
-      verbose('meta.json unavailable, falling back to registry data');
-      meta = { type: pkg.type, entry: pkg.entry || `${pkgName}.md`, version: pkg.version };
-    }
-    const entryFile = meta.entry || pkg.entry || `${pkgName}.md`;
-    verbose(`Downloading entry file: ${entryFile}`);
-    content = await downloadFile(vault, `${pkg.path}/${entryFile}`);
+    } catch { /* ignore */ }
   }
 
-  // Route to correct directory by type
-  const type = meta.type || pkg.type || 'command';
-  const entryFileName = meta.entry ? path.basename(meta.entry) : (pkg.entry ? path.basename(pkg.entry) : `${pkgName}.md`);
-  let destPath;
+  // Fallback to registry info if meta.json missing or partial
+  meta = {
+    type: meta?.type || pkg.type || 'command',
+    entry: meta?.entry || pkg.entry || `${pkgName}.md`,
+    version: meta?.version || pkg.version || pkgVersion,
+    files: meta?.files || pkg.files || []
+  };
 
+  const type = meta.type;
+  const entryFile = meta.entry;
+  const filesToDownload = meta.files.length > 0 ? meta.files : [entryFile];
+  
+  let rootDestDir;
   if (type === 'skill') {
     await migrateLegacyFlatSkillFile(getClaudeSkillsDir(isGlobal), isGlobal);
-    const skillSubdir = path.join(getClaudeSkillsDir(isGlobal), pkgName);
-    await ensureDir(skillSubdir);
-    destPath = path.join(skillSubdir, 'SKILL.md');
+    rootDestDir = path.join(getClaudeSkillsDir(isGlobal), pkgName);
   } else {
-    const destDir = getClaudeDirForType(type, isGlobal);
-    await ensureDir(destDir);
-    destPath = path.join(destDir, entryFile);
+    rootDestDir = getClaudeDirForType(type, isGlobal);
   }
+  await ensureDir(rootDestDir);
 
-  verbose(`Writing to ${destPath}`);
-  try {
-    await fs.writeFile(destPath, content, 'utf8');
-  } catch (err) {
-    if (err.code === 'EACCES' || err.code === 'EPERM') {
-      throw Object.assign(
-        new Error(`Cannot write to ${destPath}. Check permissions.`),
-        { code: err.code },
-      );
+  let primaryDestPath = '';
+  let primaryContent = '';
+
+  for (const relativePath of filesToDownload) {
+    let content;
+    if (rawBaseUrl) {
+      let url;
+      if (rawBaseUrl.endsWith('/')) {
+        url = relativePath.startsWith('/')
+          ? `${rawBaseUrl}${relativePath.slice(1)}`
+          : `${rawBaseUrl}${pkg.path}/${relativePath}`;
+      } else {
+        url = relativePath.startsWith('/')
+          ? `${rawBaseUrl}${relativePath}`
+          : `${rawBaseUrl}/${pkg.path}/${relativePath}`;
+      }
+      url = url.replace(/([^:]\/)\/+/g, '$1');
+      verbose(`Downloading ${relativePath} from ${url}`);
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`Failed to download ${relativePath}: HTTP ${resp.status}`);
+      content = await resp.text();
+    } else {
+      verbose(`Downloading ${relativePath} from vault ${vault.name}`);
+      content = await downloadFile(vault, `${pkg.path}/${relativePath}`);
     }
-    throw err;
+
+    // Determine local destination
+    // For skills, we flatten the structure into the skill directory unless we want to preserve subdirs
+    // For now, let's preserve subdirs relative to the package root
+    const destPath = (type === 'skill' && relativePath === entryFile)
+      ? path.join(rootDestDir, 'SKILL.md')
+      : path.join(rootDestDir, relativePath);
+
+    await ensureDir(path.dirname(destPath));
+    await fs.writeFile(destPath, content, 'utf8');
+
+    if (relativePath === entryFile) {
+      primaryDestPath = destPath;
+      primaryContent = content;
+    }
   }
 
-  const fm = type === 'skill' ? parseFrontmatter(content) : {};
+  const fm = type === 'skill' ? parseFrontmatter(primaryContent) : {};
   const hookRequired = !!(fm.hook || fm.hooks);
 
-  return { type, destPath, version: meta.version || pkg.version || pkgVersion, hookRequired };
+  return { type, destPath: primaryDestPath, version: meta.version, hookRequired };
 }
 
 /**

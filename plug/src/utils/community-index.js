@@ -94,6 +94,7 @@ export function normalizeCommunityPackage(pkg) {
     tags:         pkg.tags ?? [],
     path:         pkg.directory,       // maps to registry.json "path"
     entry:        pkg.entry,
+    files:        pkg.files ?? [],     // additional files to download
     rawBaseUrl:   pkg.rawBaseUrl,      // used by install in Sprint 3
     dependencies: pkg.dependencies ?? [],
     depCount:     (pkg.dependencies ?? []).length,
