@@ -6,11 +6,23 @@
 
 **Plug** is a package manager for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). It allows you to share, discover, and install reusable skills, commands, and agents across your projects via a rich, interactive Terminal User Interface (TUI).
 
+## Why Plug?
+
+Managing Claude Code extensions (Skills, Commands, and Agents) manually can quickly become unmanageable. Plug solves several key problems:
+
+*   **Corporate & Private Ecosystems**: Easily set up internal "Vaults" (GitHub repositories) to share proprietary coding standards, security guardrails, and specialized agents within your organization.
+*   **Consolidated Management**: Instead of maintaining multiple harnesses or manually copying Markdown files across different projects, Plug provides a single tool to discover, install, and update everything.
+*   **PlugVault Ecosystem**: Access a centralized, growing registry of community-contributed extensions through the official `plugvault`, or add your own custom vaults.
+*   **Zero-Bloat Workflow**: Keep your projects clean by installing only what you need, either locally to a project (`.claude/`) or globally (`~/.claude/`).
+
 ---
 
 ## 🚀 Quick Start: The Plug TUI
 
 The recommended way to use Plug is through its interactive TUI. It allows you to browse, search, and batch-install extensions without remembering complex commands.
+
+![Plug TUI Screenshot](docs/images/tui-screenshot.png)
+*(A rich, interactive interface for managing your Claude extensions)*
 
 ### 1. Install Plug
 Install as a Claude Code skill (recommended, no Node.js required):
@@ -41,6 +53,18 @@ Claude Code extensions (Skills, Commands, and Agents) are Markdown files. Plug s
 *   **Skills** — Background context that shapes Claude's behavior (coding standards, architecture rules).
 *   **Commands** — Custom actions invoked with `/command-name` (code review, test generation).
 *   **Agents** — Specialized sub-agents for delegation (research, long-running analysis).
+
+---
+
+## 🔮 Vision & Roadmap: The Road to v1.0
+
+We are moving towards a decentralized, dependency-aware ecosystem. Our roadmap is divided into three key phases:
+
+*   **Phase A: Dependency Resolution**: Moving from single-package installs to full closure resolution using a DFS resolver.
+*   **Phase B: Community Marketplace**: Enabling any developer to publish from their own repo via automated frontmatter indexing.
+*   **Phase C: Claude Native Integration**: A zero-latency installer that works directly within Claude conversations.
+
+View the detailed [Ecosystem Vision & Roadmap](docs/project/ecosystem-vision.md).
 
 ---
 

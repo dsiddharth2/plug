@@ -90,3 +90,33 @@ The following checks were flagged by the doer as unverifiable headlessly. These 
 - The `showDeps` prop guard in `package-item.jsx` ensures the installed tab (which doesn't pass `showDeps`) won't display dep counts, avoiding confusion for official packages that lack dependency metadata.
 
 **Doer:** Phase 3 complete, all tests green — 257 passed (26 files), 0 failures. 17 new community-index tests + 6 new discover/PackageDetail tests.
+
+---
+
+## Sprint 3 Review — Dependency Resolution (Cumulative)
+
+**Reviewer:** plug-reviewer  
+**Date:** 2026-04-16  
+**Verdict:** CHANGES NEEDED
+
+---
+
+## Sprint 3 Findings
+
+### HIGH
+
+- **Task 1.1: `addDependents` merge semantics ambiguous.** Requirement stated "merges newDependents" but did not specify dedup behavior or show example of multi-parent preservation. Without explicit semantics, implementer could interpret as append-without-check, losing existing dependents when second parent installs.
+  
+  **Doer:** fixed in PLAN.md revision — Task 1.1 now includes inline clause: "Merge semantics are required: if package X is a dependency of both A and B, `addDependents('X', ['B'], global)` must preserve A in X's dependents list, not erase it." + test coverage in Task 1.2.
+
+- **Task 4.1: `_cascade` flag semantics not defined.** The flag is used to control recursion and avoid re-prompting, but its meaning and lifecycle are implicit. Risk of infinite recursion or confused prompt logic if implementer misunderstands when/how to pass it.
+  
+  **Doer:** fixed in PLAN.md revision — Task 4.1 now includes dedicated `_cascade` definition paragraph: "boolean flag passed in the options object. When `true`, it means 'this call was initiated by a cascade — skip the user prompt and proceed with removal immediately.' This is what prevents infinite re-prompting when removing dependents recursively."
+
+### MEDIUM
+
+- None.
+
+### LOW
+
+- None.
