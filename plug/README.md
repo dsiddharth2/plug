@@ -39,16 +39,22 @@ plug init
 ```
 
 ### `install`
-Directly install a package by name.
+Directly install a package by name. If the package has dependencies, `plug` resolves and installs them first, then prompts for confirmation (skip with `--yes`).
 ```bash
 plug install code-review
 plug install -g my-vault/api-patterns  # Global installation
+plug install subagent-driven-development --yes  # Auto-confirm dep plan
 ```
 
+If an installed skill declares `hook:` in its frontmatter, a notice is printed reminding you to add the hook to `settings.json`.
+
 ### `remove`
-Uninstall a package.
+Uninstall a package. If other packages depend on it, `plug` prompts with Cancel / Cascade / Force options. After removal, orphaned auto-installed dependencies are offered for pruning.
 ```bash
 plug remove code-review
+plug remove code-review --cascade  # Also remove dependent packages (one level)
+plug remove code-review --force    # Remove only target; sever dependent edges
+plug remove code-review --yes      # Auto-prune orphans without prompting
 ```
 
 ### `list`
