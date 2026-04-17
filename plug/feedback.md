@@ -1,122 +1,107 @@
-# Phase 2 Review — TUI Community Integration (Cumulative)
+# Sprint 3 — Dependency Resolution: Phase 5 Review (Cumulative)
 
 **Reviewer:** plug-reviewer
-**Date:** 2026-04-16
+**Date:** 2026-04-17 11:02:00+05:30
 **Verdict:** APPROVED
 
----
-
-## Phase 1 (Community Index Util) — Previously APPROVED
-
-No regressions. `src/utils/community-index.js` unchanged since Phase 1 approval. All 5 exports still correct. LOW finding (no try/catch on `response.json()`) acknowledged by doer — deferred to Phase 3 tests.
+> See the recent git history of this file to understand the context of this review.
 
 ---
 
-## Phase 2 Findings
+## Prior Review History
 
-### HIGH
-- None.
-
-### MEDIUM
-- None.
-
-### LOW
-- None.
+- **Plan review (f4d8b53):** CHANGES NEEDED — two HIGH findings: `addDependents` merge semantics ambiguous, `_cascade` flag semantics undefined.
+  - **Doer resolution:** fixed in PLAN.md revision (85364d5) — both findings addressed with explicit inline definitions.
+  - **Re-review (0177919):** APPROVED.
+- **Phase 1 (bb6a50e):** APPROVED — tracker.js extended with `installed_as`/`dependencies`/`dependents`; 7 new test cases; 264/264 tests pass.
+- **Phase 2 (df1fe68):** APPROVED — DFS resolver created; 9 test cases; `getInstalled` called once per resolve; 273/273 tests pass.
+- **Phase 3 (a02289b):** APPROVED — install.js wired with resolver; TUI plan screen; scope toggle; 281/281 tests pass.
+- **Phase 4 (02d4464):** APPROVED — remove.js dependent check, cascade/force, orphan pruning; 287/287 tests pass.
 
 ---
 
-## Checklist — `src/tui/hooks/use-packages.js`
+## Phase 5: Post-Install Hook Notice
 
-- [x] Community try/catch is COMPLETELY ISOLATED from the vault loop's try/catch — lines 57-67 are a separate block after the `for (const vault of vaults)` loop ends at line 55.
-- [x] `networkFailCount` is NOT incremented in the community catch block — explicit comment on line 66 documents this intentional choice.
-- [x] `staleFallbackCount` IS incremented on stale cache hit (line 64).
-- [x] Imports `fetchCommunityIndex`, `getStaleCommunityIndexCache`, `normalizeCommunityPackage` from correct path `../../utils/community-index.js` (line 4).
-- [x] Official packages still load if community fetch throws — the community block runs AFTER the vault loop completes and adds to the same `all` array; a throw in the community block is caught and does not clear `all`.
+### Task 5.1: `src/utils/frontmatter.js` — PASS
 
-### Risk check — "all vaults failed" error screen
-- [x] VERIFIED SAFE. The error screen triggers at line 74: `if (all.length === 0 && networkFailCount > 0)`. Community failure does not increment `networkFailCount` (line 66 comment). Even if all community packages fail AND no stale cache exists, the error screen only fires if `all.length === 0` AND official vaults also failed. Community-only failure is silently swallowed — correct behavior.
+- [x] `parseFrontmatter(content)` exported; regex `^---\r?\n([\s\S]*?)\r?\n---` correctly matches YAML fence block.
+- [x] CRLF handled: both the fence delimiter regex and the line splitter use `\r?\n`.
+- [x] Malformed input (no closing `---`): regex non-greedy `*?` with no match returns `{}`. Correct.
+- [x] No frontmatter: regex fails to match, returns `{}`. Correct.
+- [x] Key-value parsing uses `indexOf(':')` — handles colons in values (e.g., `hook: pre-tool-use:v2` → key `hook`, value `pre-tool-use:v2`). Correct.
+- [x] Empty keys skipped (`if (key) result[key] = value`). Correct.
+- [x] Lines without colons skipped. Correct.
 
-## Checklist — `src/tui/components/package-item.jsx`
+### Task 5.1: Install.js wiring — PASS
 
-- [x] `showDeps` prop defaults to `false` (line 29).
-- [x] `depStr` logic correct: `★ N dep` (singular when N=1), `★ N deps` (plural when N>1), `no deps` when N=0 or undefined (lines 46-48). `undefined > 0` is `false`, so official packages without `depCount` correctly render `· no deps`.
-- [x] Existing separator logic preserved — `depStr` is appended AFTER `updateStr` in the `nameLine` template (line 53), maintaining the `name · vault · version` chain.
-- [x] `depStr` only rendered when `showDeps` is truthy (line 53: `${showDeps ? depStr : ''}`).
+- [x] `parseFrontmatter` imported at line 13.
+- [x] `parseFrontmatter(content)` called at line 322 inside `installSinglePackage`, AFTER `fs.writeFile` at line 311. Correct placement — parse occurs after SKILL.md is already written to disk.
+- [x] Guard `type === 'skill'` at line 322 ensures non-skill packages always get `fm = {}`, so `hookRequired` is `false` for commands and agents. No regression on non-skill installs.
+- [x] `hookRequired` returned from `installSinglePackage` and threaded through `rootInstallInfo` to the output block.
+- [x] CLI path (line 246-248): `chalk.yellow(⚠ Hook required: '${pkgName}' expects a hook in settings.json)` — printed only when `hookRequired` is truthy.
+- [x] JSON mode (line 234): `if (hookRequired) out.hookRequired = true` — conditionally added to output object, not always present. Clean.
+- [x] Fallback default at line 230: `hookRequired: false` when `rootInstallInfo` is null. Correct.
 
-## Checklist — `src/tui/components/package-detail.jsx`
+### Task 5.2: `tests/frontmatter.test.js` — PASS
 
-- [x] `isInstalled: boolean` prop replaced with `installedNames: Set<string>` (line 16). `isInstalled` derived locally via `installedNames.has(pkg.name)` (line 17).
-- [x] Dep list renders only when `pkg.dependencies?.length > 0` (line 76).
-- [x] Required deps: `•`, optional deps: `○` (line 81).
-- [x] "Installing this will also install" lists only required + uninstalled deps (line 89: `d.required && !installedNames.has(d.name)`).
-- [x] Per-dep installed status shown: `✓ installed` (green) or `not installed` (dim) (lines 84-86).
+5 test cases covering the exact spec:
 
-## Checklist — `src/tui/screens/discover.jsx`
+1. **Standard parse** (`---\nname: my-skill\nversion: 1.0\n---`) → `{ name: 'my-skill', version: '1.0' }`. Tests core happy path.
+2. **No frontmatter** (plain text) → `{}`. Tests absence handling.
+3. **Malformed** (no closing `---`) → `{}`. Tests regex robustness.
+4. **CRLF** (`\r\n` endings throughout) → correct parse with `hook: settings`. Tests cross-platform.
+5. **Hook field** (`hook: pre-tool-use`) → `fm.hook === 'pre-tool-use'`. Tests the specific field the install wiring depends on.
 
-- [x] `installedNames={installedNames}` passed to PackageDetail (line 196), NOT the old `isInstalled={...}`.
-- [x] `showDeps={true}` passed to PackageList (line 267).
-- [x] No new state introduced — `installedNames` was already present from prior work.
+All 5 are meaningful functional assertions, not snapshots. PASS.
 
-## Checklist — `progress.json`
+### Security — PASS
 
-- [x] Tasks 2.1, 2.2, 2.3, 2.4, 2.V all marked `completed` with commit SHA `feat(discover): merge community packages into Discover tab`.
+- **No injection from frontmatter content into CLI output.** The warning message interpolates `pkgName` (from CLI argument / registry lookup), NOT any frontmatter value. Frontmatter is only checked for key existence (`fm.hook || fm.hooks`), never interpolated into strings.
+- **No path traversal.** `parseFrontmatter` is a pure function operating on `content` (the already-fetched file contents). No filesystem access.
+- **No silent catches swallowing errors.** The frontmatter parse is a regex match that returns `{}` on failure — this is intentional degradation, not error suppression. The `installSinglePackage` function's existing error handling (EACCES/EPERM rethrow, general rethrow) is unchanged and correct.
 
-## Checklist — `npm test`
+---
 
-- [x] 233 passed, 0 failures (25 test files). Matches doer's claim exactly.
+## Regression Check: Phases 1–4
 
-## Manual TUI Verification (NOT automated — headless limitation)
+### Phase 1 (Tracker) — No regression
 
-The following checks were flagged by the doer as unverifiable headlessly. These are NOT failures — they require manual TUI interaction:
+- `trackInstall`, `addDependents`, `getInstalledRecord`, `prunableOrphans`, `removeDependentEdge` unchanged since Phase 1 commit (54652d1). Phase 5 does not touch `tracker.js`.
 
-- [ ] Discover tab shows 800+ packages (community merged in)
-- [ ] Search "subagent" shows `subagent-driven-development` with `★ 6 deps`
-- [ ] Search "senior-engineer" shows `· no deps`
-- [ ] Detail view renders dependency list with `•`/`○` markers and installed status
+### Phase 2 (Resolver) — No regression
+
+- `resolver.js` unchanged since Phase 2 commit (b3eaf24). Phase 5 does not touch `resolver.js`.
+
+### Phase 3 (Install wiring) — No regression
+
+- `install.js` changes in Phase 5 are additive: import added (line 13), `hookRequired` threaded through return value and output block. The `installSinglePackage` helper, resolver wiring, `addDependents` calls, and dep-tracking logic are untouched.
+- Existing install.test.js mocks unaffected — `parseFrontmatter` is not mocked in install tests, but this is acceptable because `installSinglePackage` is tested through the `runInstall` integration path where `downloadFile` is mocked to return content without frontmatter, making `hookRequired` default to `false`.
+
+### Phase 4 (Remove) — No regression
+
+- `remove.js` unchanged since Phase 4 commit (5959da2). Phase 5 does not touch `remove.js`.
+
+### npm test — PASS
+
+- **292/292 tests pass, 28 test files, 0 failures.** Matches doer's claim. Includes all Sprint 1/2/3 test suites.
+
+---
 
 ## Cross-cutting
 
-- [x] `git log --oneline main..HEAD` shows correct commit chain: Phase 1 review, Phase 1 feat, Phase 2 feat.
+- [x] Commit message `feat(install): post-install hook notice` matches PLAN.md VERIFY spec.
+- [x] Commit touches only declared files: `src/utils/frontmatter.js`, `tests/frontmatter.test.js`, `src/commands/install.js`, `progress.json` (4 files changed, 60 insertions, 14 deletions).
 - [x] `CLAUDE.md` is NOT committed.
 - [x] `.fleet-task.md` is NOT committed.
-- [x] No scope creep — only declared files touched (use-packages.js, package-item.jsx, package-detail.jsx, package-list.jsx, discover.jsx, progress.json, feedback.md).
-- [x] Commit message matches PLAN.md VERIFY spec.
-
-## Notes
-
-- Clean isolation pattern in `use-packages.js` — the community block is self-contained with its own try/catch and does not interact with the vault loop's error tracking. This is the correct architecture for a non-blocking secondary data source.
-- The `normalizeCommunityPackage` adapter in `community-index.js` correctly adds `depCount` from `dependencies.length`, which feeds directly into `package-item.jsx`'s display logic without any coupling.
-- `package-detail.jsx` prop change from `isInstalled: boolean` to `installedNames: Set<string>` is a clean improvement — it enables per-dependency installed status checks without additional prop drilling.
-- The `showDeps` prop guard in `package-item.jsx` ensures the installed tab (which doesn't pass `showDeps`) won't display dep counts, avoiding confusion for official packages that lack dependency metadata.
-
-**Doer:** Phase 3 complete, all tests green — 257 passed (26 files), 0 failures. 17 new community-index tests + 6 new discover/PackageDetail tests.
+- [x] `progress.json` tasks 5.1, 5.2, 5.V all marked `completed` with correct notes (292/292 tests pass).
+- [x] No scope creep — no unrelated files modified.
 
 ---
 
-## Sprint 3 Review — Dependency Resolution (Cumulative)
+## Summary
 
-**Reviewer:** plug-reviewer  
-**Date:** 2026-04-16  
-**Verdict:** CHANGES NEEDED
+**Phase 5 is clean.** `parseFrontmatter` is a minimal, correct YAML-fence parser with proper CRLF handling and graceful degradation on malformed input. The install.js wiring is well-placed (after SKILL.md write), correctly guarded (skill-only), and properly threaded through both CLI and JSON output paths. The 5 tests are meaningful and cover the spec'd edge cases. No security concerns — frontmatter values are never interpolated into output strings.
 
----
+**Sprint 3 complete.** All 5 phases (tracker extension, DFS resolver, install wiring, remove wiring, hook notice) reviewed and approved. 292/292 tests pass across 28 test files. No regressions detected in any prior phase. The two HIGH findings from the plan review (merge semantics, cascade flag) were addressed in PLAN.md revisions and correctly implemented in code.
 
-## Sprint 3 Findings
-
-### HIGH
-
-- **Task 1.1: `addDependents` merge semantics ambiguous.** Requirement stated "merges newDependents" but did not specify dedup behavior or show example of multi-parent preservation. Without explicit semantics, implementer could interpret as append-without-check, losing existing dependents when second parent installs.
-  
-  **Doer:** fixed in PLAN.md revision — Task 1.1 now includes inline clause: "Merge semantics are required: if package X is a dependency of both A and B, `addDependents('X', ['B'], global)` must preserve A in X's dependents list, not erase it." + test coverage in Task 1.2.
-
-- **Task 4.1: `_cascade` flag semantics not defined.** The flag is used to control recursion and avoid re-prompting, but its meaning and lifecycle are implicit. Risk of infinite recursion or confused prompt logic if implementer misunderstands when/how to pass it.
-  
-  **Doer:** fixed in PLAN.md revision — Task 4.1 now includes dedicated `_cascade` definition paragraph: "boolean flag passed in the options object. When `true`, it means 'this call was initiated by a cascade — skip the user prompt and proceed with removal immediately.' This is what prevents infinite re-prompting when removing dependents recursively."
-
-### MEDIUM
-
-- None.
-
-### LOW
-
-- None.
+Sprint is ready for PR to main.
