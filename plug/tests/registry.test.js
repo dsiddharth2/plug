@@ -18,7 +18,26 @@ vi.mock('../src/utils/paths.js', async (importOriginal) => {
   };
 });
 
+vi.mock('../src/utils/community-index.js', () => ({
+  fetchCommunityIndex: vi.fn(),
+  normalizeCommunityPackage: (pkg) => ({
+    name: pkg.name,
+    vault: pkg.vault,
+    vaultUrl: pkg.vaultUrl,
+    version: pkg.version ?? '?',
+    type: pkg.type,
+    description: pkg.description ?? '',
+    tags: pkg.tags ?? [],
+    path: pkg.directory,
+    entry: pkg.entry,
+    rawBaseUrl: pkg.rawBaseUrl,
+    dependencies: pkg.dependencies ?? [],
+    source: 'community',
+  }),
+}));
+
 const { getCachedRegistry, cacheRegistry, fetchRegistry, findPackage, findAllPackages } = await import('../src/utils/registry.js');
+const { fetchCommunityIndex } = await import('../src/utils/community-index.js');
 
 // registry.json uses an object-based packages schema (key = package name)
 const sampleRegistry = {
@@ -26,6 +45,20 @@ const sampleRegistry = {
     'code-review': { type: 'command', version: '1.0.0', path: 'registry/code-review', description: 'Code review command' },
     'api-patterns': { type: 'skill', version: '1.0.0', path: 'registry/api-patterns', description: 'API patterns skill' },
   },
+};
+
+const sampleCommunityIndex = {
+  packages: [
+    {
+      name: 'requesting-code-review',
+      vault: 'superpowers',
+      vaultUrl: 'https://github.com/user/superpowers',
+      type: 'skill',
+      version: '1.1.0',
+      directory: 'skills/requesting-code-review',
+      rawBaseUrl: 'https://raw.githubusercontent.com/user/superpowers/main',
+    }
+  ]
 };
 
 const sampleVault = { name: 'official', owner: 'dsiddharth2', repo: 'plugvault', branch: 'main', private: false };
@@ -40,6 +73,7 @@ describe('registry utils', () => {
       default_vault: 'official',
     };
     await fs.writeFile(configPath, JSON.stringify(config), 'utf8');
+    fetchCommunityIndex.mockResolvedValue(sampleCommunityIndex);
   });
 
   afterEach(async () => {
@@ -132,6 +166,15 @@ describe('registry utils', () => {
       expect(result.pkg.type).toBe('skill');
     });
 
+    it('finds community package when not in official vault', async () => {
+      await cacheRegistry('official', sampleRegistry);
+      const result = await findPackage('requesting-code-review');
+      expect(result).not.toBeNull();
+      expect(result.pkg.name).toBe('requesting-code-review');
+      expect(result.pkg.source).toBe('community');
+      expect(result.vault.name).toBe('superpowers');
+    });
+
     it('returns null when package not found', async () => {
       await cacheRegistry('official', sampleRegistry);
       const result = await findPackage('nonexistent');
@@ -149,15 +192,30 @@ describe('registry utils', () => {
       const result = await findPackage('code-review', 'other-vault');
       expect(result).toBeNull();
     });
+
+    it('finds community package by specific vault name', async () => {
+      const result = await findPackage('requesting-code-review', 'superpowers');
+      expect(result).not.toBeNull();
+      expect(result.pkg.name).toBe('requesting-code-review');
+      expect(result.vault.name).toBe('superpowers');
+    });
   });
 
   describe('findAllPackages', () => {
-    it('returns all vaults containing the package', async () => {
+    it('returns all vaults containing the package including community', async () => {
       await cacheRegistry('official', sampleRegistry);
+      // Mock code-review in community too to test multi-source
+      fetchCommunityIndex.mockResolvedValue({
+        packages: [
+          ...sampleCommunityIndex.packages,
+          { name: 'code-review', vault: 'other-vault', type: 'command' }
+        ]
+      });
+
       const results = await findAllPackages('code-review');
-      expect(results).toHaveLength(1);
-      expect(results[0].pkg.name).toBe('code-review');
-      expect(results[0].vault.name).toBe('official');
+      expect(results).toHaveLength(2);
+      expect(results.map(r => r.vault.name)).toContain('official');
+      expect(results.map(r => r.vault.name)).toContain('other-vault');
     });
 
     it('returns empty array when package not found', async () => {

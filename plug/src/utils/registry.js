@@ -10,6 +10,8 @@ import {
   CACHE_TTL_MS,
 } from '../constants.js';
 
+import { fetchCommunityIndex, normalizeCommunityPackage } from './community-index.js';
+
 /**
  * Returns the cache file path for a vault's registry.
  * @param {string} vaultName
@@ -129,6 +131,26 @@ export async function findPackage(name, vaultName = null) {
       // Skip unavailable vaults
     }
   }
+
+  // If not found in configured vaults, check community index
+  try {
+    const community = await fetchCommunityIndex();
+    const communityPkgs = community.packages || community;
+    const pkgList = Array.isArray(communityPkgs) ? communityPkgs : Object.values(communityPkgs);
+    const communityMatch = pkgList.find(
+      (p) => p.name === name && (!vaultName || p.vault === vaultName)
+    );
+    if (communityMatch) {
+      const normalized = normalizeCommunityPackage(communityMatch);
+      return {
+        pkg: normalized,
+        vault: { name: normalized.vault, url: normalized.vaultUrl }
+      };
+    }
+  } catch {
+    // Community failure is non-blocking
+  }
+
   return null;
 }
 
@@ -152,5 +174,24 @@ export async function findAllPackages(name) {
       // Skip unavailable vaults
     }
   }
+
+  // Add community matches
+  try {
+    const community = await fetchCommunityIndex();
+    const communityPkgs = community.packages || community;
+    const pkgList = Array.isArray(communityPkgs) ? communityPkgs : Object.values(communityPkgs);
+    for (const p of pkgList) {
+      if (p.name === name) {
+        const normalized = normalizeCommunityPackage(p);
+        results.push({
+          pkg: normalized,
+          vault: { name: normalized.vault, url: normalized.vaultUrl }
+        });
+      }
+    }
+  } catch {
+    // Community failure is non-blocking
+  }
+
   return results;
 }

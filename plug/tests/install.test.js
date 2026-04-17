@@ -3,6 +3,10 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
 
+vi.mock('../src/utils/resolver.js', () => ({
+  resolve: vi.fn().mockResolvedValue({ toInstall: [], alreadySatisfied: [], cycles: [] }),
+}));
+
 const tmpDir = path.join(os.tmpdir(), `plugvault-install-test-${Date.now()}`);
 const localSkillsDir = path.join(tmpDir, '.claude', 'skills');
 const localCommandsDir = path.join(tmpDir, '.claude', 'commands');
@@ -95,6 +99,7 @@ vi.mock('../src/utils/tracker.js', () => ({
   trackInstall: vi.fn(),
   isInstalled: vi.fn(),
   getInstalled: vi.fn().mockResolvedValue({ installed: {} }),
+  addDependents: vi.fn(),
 }));
 
 vi.mock('@inquirer/prompts', () => ({
@@ -104,8 +109,9 @@ vi.mock('@inquirer/prompts', () => ({
 
 const { findPackage, findAllPackages } = await import('../src/utils/registry.js');
 const { downloadFile } = await import('../src/utils/fetcher.js');
-const { trackInstall, isInstalled, getInstalled } = await import('../src/utils/tracker.js');
+const { trackInstall, isInstalled, getInstalled, addDependents } = await import('../src/utils/tracker.js');
 const { confirm, select } = await import('@inquirer/prompts');
+const { resolve } = await import('../src/utils/resolver.js');
 const { runInstall } = await import('../src/commands/install.js');
 
 describe('plug install', () => {
@@ -412,6 +418,72 @@ describe('plug install', () => {
     const newPath = path.join(localSkillsDir, 'another-skill', 'SKILL.md');
     const newContent = await fs.readFile(newPath, 'utf8');
     expect(newContent).toBe('# another-skill content');
+  });
+
+  // ── Phase 3: resolver integration ────────────────────────────────────────
+
+  it('calls resolve with pkgName, vault name, and scope before installing', async () => {
+    await runInstall('code-review', {});
+
+    expect(resolve).toHaveBeenCalledWith('code-review', 'official', { global: false });
+  });
+
+  it('installs deps as installed_as:dependency and root as installed_as:explicit', async () => {
+    const depPkg = { name: 'dep-tool', type: 'command', version: '1.0.0', path: 'registry/dep-tool', description: '' };
+    // Resolver returns dep only; root is added by install.js guard
+    resolve.mockResolvedValueOnce({ toInstall: ['dep-tool'], alreadySatisfied: [], cycles: [] });
+    findAllPackages
+      .mockResolvedValueOnce([{ pkg: samplePkg, vault: sampleVault }])   // initial code-review lookup
+      .mockResolvedValueOnce([{ pkg: depPkg, vault: sampleVault }]);      // dep-tool dep lookup
+    downloadFile
+      .mockReset()
+      .mockResolvedValueOnce(JSON.stringify({ name: 'dep-tool', type: 'command', version: '1.0.0', entry: 'dep-tool.md' }))
+      .mockResolvedValueOnce('# dep-tool content')
+      .mockResolvedValueOnce(JSON.stringify(sampleMeta))
+      .mockResolvedValueOnce('# code-review content');
+
+    await runInstall('code-review', {});
+
+    expect(trackInstall).toHaveBeenCalledWith(
+      'dep-tool',
+      expect.objectContaining({ installed_as: 'dependency' }),
+      false,
+    );
+    expect(trackInstall).toHaveBeenCalledWith(
+      'code-review',
+      expect.objectContaining({ installed_as: 'explicit' }),
+      false,
+    );
+  });
+
+  it('calls addDependents for each dep with the root as dependent', async () => {
+    const depPkg = { name: 'dep-tool', type: 'command', version: '1.0.0', path: 'registry/dep-tool', description: '' };
+    resolve.mockResolvedValueOnce({ toInstall: ['dep-tool'], alreadySatisfied: [], cycles: [] });
+    findAllPackages
+      .mockResolvedValueOnce([{ pkg: samplePkg, vault: sampleVault }])
+      .mockResolvedValueOnce([{ pkg: depPkg, vault: sampleVault }]);
+    downloadFile
+      .mockReset()
+      .mockResolvedValueOnce(JSON.stringify({ name: 'dep-tool', type: 'command', version: '1.0.0', entry: 'dep-tool.md' }))
+      .mockResolvedValueOnce('# dep-tool content')
+      .mockResolvedValueOnce(JSON.stringify(sampleMeta))
+      .mockResolvedValueOnce('# code-review content');
+
+    await runInstall('code-review', {});
+
+    expect(addDependents).toHaveBeenCalledWith('dep-tool', ['code-review'], false);
+    expect(addDependents).not.toHaveBeenCalledWith('code-review', expect.anything(), expect.anything());
+  });
+
+  it('skips already-satisfied deps — does not download or track them', async () => {
+    resolve.mockResolvedValueOnce({ toInstall: ['code-review'], alreadySatisfied: ['some-dep'], cycles: [] });
+
+    await runInstall('code-review', {});
+
+    // Only root: 2 downloadFile calls (meta + entry)
+    expect(downloadFile).toHaveBeenCalledTimes(2);
+    expect(trackInstall).toHaveBeenCalledTimes(1);
+    expect(addDependents).not.toHaveBeenCalled();
   });
 
 });

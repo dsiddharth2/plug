@@ -20,6 +20,10 @@ vi.mock('../../src/commands/install.js', () => ({
   runInstall: vi.fn(async () => {}),
 }));
 
+vi.mock('../../src/utils/resolver.js', () => ({
+  resolve: vi.fn(async () => ({ toInstall: [], alreadySatisfied: [], cycles: [] })),
+}));
+
 vi.mock('../../src/utils/context.js', () => ({
   ctx: { set: vi.fn() },
 }));
@@ -28,6 +32,7 @@ vi.mock('../../src/utils/context.js', () => ({
 const { default: DiscoverScreen } = await import('../../src/tui/screens/discover.jsx');
 const { default: PackageDetail } = await import('../../src/tui/components/package-detail.jsx');
 const { usePackages } = await import('../../src/tui/hooks/use-packages.js');
+const { resolve } = await import('../../src/utils/resolver.js');
 
 const MOCK_PACKAGES = [
   { name: 'code-review', vault: 'official', version: '1.0.0', type: 'command', description: 'Review code' },
@@ -187,6 +192,120 @@ describe('DiscoverScreen', () => {
     // dep-two and dep-three are not installed
     expect(frame).toContain('dep-two');
     expect(frame).toContain('not installed');
+  });
+
+  // ── Plan view ──────────────────────────────────────────────────────────────
+
+  it('shows plan view when package has deps (toInstall.length > 1)', async () => {
+    vi.mocked(usePackages).mockReturnValue({
+      packages: [MOCK_COMMUNITY_PACKAGES[0]], // agent-fleet with deps
+      loading: false,
+      error: null,
+      warning: null,
+    });
+    // Resolver returns multiple packages → plan screen should show
+    vi.mocked(resolve).mockResolvedValueOnce({
+      toInstall: ['dep-one', 'agent-fleet'],
+      alreadySatisfied: [],
+      cycles: [],
+    });
+
+    const { lastFrame, stdin } = render(<DiscoverScreen onInputCapture={() => {}} />);
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Press 'i' to start install
+    stdin.write('i');
+    await new Promise((r) => setTimeout(r, 200));
+
+    const frame = lastFrame();
+    expect(frame).toContain('Will install');
+  });
+
+  it('skips plan view for a no-dep package (installs immediately)', async () => {
+    vi.mocked(usePackages).mockReturnValue({
+      packages: [MOCK_COMMUNITY_PACKAGES[1]], // simple-tool with no deps
+      loading: false,
+      error: null,
+      warning: null,
+    });
+    // Resolver returns only root → skip plan screen
+    vi.mocked(resolve).mockResolvedValueOnce({
+      toInstall: ['simple-tool'],
+      alreadySatisfied: [],
+      cycles: [],
+    });
+
+    const { runInstall } = await import('../../src/commands/install.js');
+    vi.mocked(runInstall).mockResolvedValue(undefined);
+
+    const { lastFrame, stdin } = render(<DiscoverScreen onInputCapture={() => {}} />);
+    await new Promise((r) => setTimeout(r, 50));
+
+    stdin.write('i');
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Should go directly to installing view (not plan view)
+    const frame = lastFrame();
+    expect(frame).not.toContain('Will install');
+  });
+
+  it('Tab key toggles scope between Project and Global in plan view', async () => {
+    vi.mocked(usePackages).mockReturnValue({
+      packages: [MOCK_COMMUNITY_PACKAGES[0]],
+      loading: false,
+      error: null,
+      warning: null,
+    });
+    vi.mocked(resolve).mockResolvedValueOnce({
+      toInstall: ['dep-one', 'agent-fleet'],
+      alreadySatisfied: [],
+      cycles: [],
+    });
+
+    const { lastFrame, stdin } = render(<DiscoverScreen onInputCapture={() => {}} />);
+    await new Promise((r) => setTimeout(r, 50));
+
+    stdin.write('i');
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Default scope is project
+    expect(lastFrame()).toContain('◉ Project');
+
+    // Tab toggles to global
+    stdin.write('\t');
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(lastFrame()).toContain('◉ Global');
+  });
+
+  it('Esc in plan view returns to list', async () => {
+    vi.mocked(usePackages).mockReturnValue({
+      packages: [MOCK_COMMUNITY_PACKAGES[0]],
+      loading: false,
+      error: null,
+      warning: null,
+    });
+    vi.mocked(resolve).mockResolvedValueOnce({
+      toInstall: ['dep-one', 'agent-fleet'],
+      alreadySatisfied: [],
+      cycles: [],
+    });
+
+    const { lastFrame, stdin } = render(<DiscoverScreen onInputCapture={() => {}} />);
+    await new Promise((r) => setTimeout(r, 50));
+
+    stdin.write('i');
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Plan view is showing
+    expect(lastFrame()).toContain('Will install');
+
+    // Esc cancels back to list
+    stdin.write('\x1B');
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(lastFrame()).toContain('agent-fleet');
+    expect(lastFrame()).not.toContain('Will install');
   });
 
   it('"Installing this will also install" shows only uninstalled required deps', () => {

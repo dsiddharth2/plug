@@ -7,14 +7,16 @@ import Spinner from '../components/spinner.jsx';
 import PackageDetail from '../components/package-detail.jsx';
 import InstallProgress from '../components/install-progress.jsx';
 import InstallComplete from '../components/install-complete.jsx';
+import InstallPlan from '../components/install-plan.jsx';
 import { usePackages } from '../hooks/use-packages.js';
 import { useSearch } from '../hooks/use-search.js';
 import { captureOutput, yieldToInk } from '../utils/capture-stdout.js';
 import { runInstall } from '../../commands/install.js';
 import { getInstalled } from '../../utils/tracker.js';
+import { resolve } from '../../utils/resolver.js';
 import { ctx } from '../../utils/context.js';
 
-/** @typedef {'list'|'detail'|'installing'|'complete'} DiscoverView */
+/** @typedef {'list'|'detail'|'installing'|'complete'|'plan'} DiscoverView */
 
 /**
  * Discover screen: lists all packages from configured vaults.
@@ -34,6 +36,8 @@ export default function DiscoverScreen({ onInputCapture }) {
   const [installResults, setInstallResults] = useState([]);
   const [currentInstalling, setCurrentInstalling] = useState(null);
   const [installedNames, setInstalledNames] = useState(new Set());
+  const [depPlan, setDepPlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(false);
   const installingRef = useRef(false);
 
   // Filtered/searched package list
@@ -130,15 +134,52 @@ export default function DiscoverScreen({ onInputCapture }) {
 
   function startInstall(queue) {
     if (installingRef.current) return;
-    installingRef.current = true;
     setInstallQueue(queue);
     setInstallResults([]);
     setCurrentInstalling(null);
-    setView('installing');
-    doInstall(queue).finally(() => { installingRef.current = false; });
+
+    // Run resolver to check if any deps need installing
+    setPlanLoading(true);
+    setDepPlan(null);
+    setView('plan');
+
+    const rootPkg = queue[0];
+    resolve(rootPkg.name, rootPkg.vault, { global: false })
+      .then((plan) => {
+        setPlanLoading(false);
+        setDepPlan(plan);
+        // Single package (no extra deps) → skip plan screen, install immediately
+        if (plan.toInstall.length <= 1) {
+          setView('installing');
+          installingRef.current = true;
+          doInstall(queue).finally(() => { installingRef.current = false; });
+        }
+        // else: stay on plan view so user can confirm
+      })
+      .catch(() => {
+        // Resolver failed — fall back to direct install
+        setPlanLoading(false);
+        setView('installing');
+        installingRef.current = true;
+        doInstall(queue).finally(() => { installingRef.current = false; });
+      });
   }
 
-  async function doInstall(queue) {
+  const handlePlanConfirm = useCallback((scope) => {
+    const queue = installQueue;
+    setView('installing');
+    installingRef.current = true;
+    doInstall(queue, { global: scope === 'global' }).finally(() => { installingRef.current = false; });
+  }, [installQueue]);
+
+  const handlePlanCancel = useCallback(() => {
+    installingRef.current = false;
+    setInstallQueue([]);
+    setDepPlan(null);
+    setView('list');
+  }, []);
+
+  async function doInstall(queue, installOptions = {}) {
     const results = [];
     // Set yes=true to skip interactive prompts, json=true to get structured output
     ctx.set({ yes: true, json: true });
@@ -151,7 +192,7 @@ export default function DiscoverScreen({ onInputCapture }) {
       await yieldToInk();
       try {
         const { captured } = await captureOutput(() =>
-          runInstall(`${pkg.vault}/${pkg.name}`, { global: false })
+          runInstall(`${pkg.vault}/${pkg.name}`, { global: installOptions.global || false })
         );
         // Parse JSON output to get install path
         let installPath = null;
@@ -194,6 +235,18 @@ export default function DiscoverScreen({ onInputCapture }) {
         onBack={handleDetailBack}
         onInstall={handleDetailInstall}
         installedNames={installedNames}
+      />
+    );
+  }
+
+  if (view === 'plan') {
+    return (
+      <InstallPlan
+        queue={installQueue}
+        plan={depPlan}
+        loading={planLoading}
+        onConfirm={handlePlanConfirm}
+        onCancel={handlePlanCancel}
       />
     );
   }
