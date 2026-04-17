@@ -49,13 +49,19 @@ plug install subagent-driven-development --yes  # Auto-confirm dep plan
 If an installed skill declares `hook:` in its frontmatter, a notice is printed reminding you to add the hook to `settings.json`.
 
 ### `remove`
-Uninstall a package. If other packages depend on it, `plug` prompts with Cancel / Cascade / Force options. After removal, orphaned auto-installed dependencies are offered for pruning.
+Uninstall a package.
 ```bash
 plug remove code-review
-plug remove code-review --cascade  # Also remove dependent packages (one level)
-plug remove code-review --force    # Remove only target; sever dependent edges
-plug remove code-review --yes      # Auto-prune orphans without prompting
+plug remove -g code-review  # Remove from global ~/.claude/
+plug remove code-review --yes  # Auto-prune orphaned dependencies without prompting
 ```
+
+If other packages depend on the target, `plug` shows an interactive prompt with three choices:
+- **Cancel** — abort, nothing changes.
+- **Remove all (cascade)** — remove dependent packages first (one level), then remove the target.
+- **Force remove** — remove only the target; severs dependent edges without touching dependent packages.
+
+After any successful remove, `plug` checks for orphaned auto-installed dependencies. If any exist, it prompts to remove them. `--yes` skips this confirmation and prunes automatically.
 
 ### `list`
 List all currently installed packages. Use `--remote` to see all available packages.

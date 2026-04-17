@@ -67,7 +67,7 @@ parseFrontmatter(content: string): Record<string, string>
 
 Parses a YAML fence block from the top of a string. Returns `{}` on absent or malformed frontmatter. Never throws.
 
-Checks `fm.hook || fm.hooks` to determine whether the installed skill requires a hook in `settings.json`.
+`install.js` checks the returned record for `fm.hook || fm.hooks` to decide whether to emit a hook-required notice. The function itself is a pure parser with no install-specific logic.
 
 ---
 

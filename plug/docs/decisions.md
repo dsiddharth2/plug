@@ -28,7 +28,7 @@ Mixing a human-readable warning string into JSON output would break machine cons
 
 ## Shallow cascade on remove
 
-`--cascade` removes direct dependents one level deep. When a dependent is removed via cascade, it does not further cascade into its own dependents. Deep transitive cascade is deferred to a future sprint.
+The "Remove all (cascade)" interactive choice removes direct dependents one level deep. When a dependent is removed as part of a cascade, it does not further cascade into its own dependents. Deep transitive cascade is deferred to a future sprint.
 
 Rationale: deep cascade is hard to reason about and easy to trigger accidentally. Shallow cascade covers the common case (A depends on X; removing X cascades to A) with a predictable blast radius. Users who need deeper removal can repeat the command.
 

@@ -31,12 +31,17 @@ The JSON output includes `hookRequired: true` when the installed skill declares 
 
 ```
 plug remove <package>
-plug remove <package> --cascade
-plug remove <package> --force
-plug remove <package> --yes
+plug remove <package> --yes   # Auto-prune orphans without prompting
 ```
 
-When removing a package that other packages depend on, `plug` prompts with three choices:
+When removing a package that other packages depend on, `plug` shows an interactive prompt:
+
+```
+'<package>' is required by: <dependent>, <dependent>. How do you want to proceed?
+> Cancel
+  Remove all (cascade) — removes dependents first, then this package
+  Force remove — removes only this package, severs dependent edges
+```
 
 | Choice | Behaviour |
 |--------|-----------|
@@ -44,7 +49,9 @@ When removing a package that other packages depend on, `plug` prompts with three
 | Remove all (cascade) | Removes each dependent package first (one level deep), then removes the target. |
 | Force remove | Removes only the target; severs dependent edges without removing dependent packages. |
 
-**Orphan pruning:** after any successful remove, `plug` checks for installed-as-dependency packages whose `dependents` list is now empty. If any exist, it prompts to prune them. `--yes` auto-prunes without prompting.
+`--cascade` and `--force` are **not** CLI flags. They are choices in the interactive prompt that appears when dependents are detected.
+
+**Orphan pruning:** after any successful remove, `plug` checks for installed-as-dependency packages whose `dependents` list is now empty. If any exist, it prompts to prune them. `--yes` (a global flag) auto-prunes without prompting.
 
 ## Post-install hook notice
 

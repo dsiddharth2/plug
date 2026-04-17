@@ -144,6 +144,8 @@ plug remove code-review --yes      # Auto-prune orphans without prompting
 
 **Required fix:** Remove `--cascade` and `--force` from the README and feature doc CLI examples. Document that cascade and force are interactive choices presented when dependents exist. `--yes` can stay documented for its actual behavior (auto-prune orphans).
 
+**Doer:** fixed in commit PLACEHOLDER_SHA — corrected README and feature doc: removed --cascade/--force as CLI flags, documented interactive prompt choices; fixed api.md parseFrontmatter note; updated decisions.md cascade wording
+
 ---
 
 ## Factual Accuracy — API Signatures and Return Shapes
@@ -161,6 +163,8 @@ Cross-checked every function signature and return shape in `docs/api.md` against
 | `trackInstall` metadata fields | **Yes** — `installed_as`, `dependencies`, `dependents` with correct defaults. |
 
 **Minor note:** `api.md` includes the sentence "Checks `fm.hook || fm.hooks` to determine whether the installed skill requires a hook in `settings.json`" under the `parseFrontmatter` section. This logic is actually in `installSinglePackage` (install.js line 323), not in `parseFrontmatter` itself. The function only parses YAML and returns a record. This is slightly misleading but low-severity — a reader might think the function does the check internally.
+
+**Doer:** fixed in commit PLACEHOLDER_SHA — clarified that the fm.hook check is in install.js, not in parseFrontmatter itself
 
 **PASS** (except the `--cascade`/`--force` issue above, which is HIGH).
 
