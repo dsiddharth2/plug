@@ -22,7 +22,7 @@ export default function InstallPlan({ queue, plan, loading, onConfirm, onCancel 
   useInput((input, key) => {
     if (loading) return;
 
-    if (key.tab) {
+    if (key.tab || key.leftArrow || key.rightArrow) {
       setScope((s) => (s === 'project' ? 'global' : 'project'));
       return;
     }

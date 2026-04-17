@@ -262,18 +262,42 @@ async function installSinglePackage(pkgSpec, isGlobal) {
   if (rawBaseUrl) {
     // Community package: fetch via raw base URL directly
     try {
-      const resp = await fetch(`${rawBaseUrl}/${pkg.path}/meta.json`);
+      const metaUrl = rawBaseUrl.endsWith('/')
+        ? `${rawBaseUrl}${pkg.path}/meta.json`
+        : `${rawBaseUrl}/${pkg.path}/meta.json`;
+      const resp = await fetch(metaUrl);
       if (resp.ok) {
         meta = await resp.json();
       } else {
-        throw new Error(`HTTP ${resp.status}`);
+        // Not a failure if meta.json is missing; we'll fall back to pkg info
+        meta = { type: pkg.type, entry: pkg.entry || `${pkgName}.md`, version: pkg.version };
       }
     } catch {
-      meta = { type: pkg.type, entry: `${pkgName}.md`, version: pkg.version };
+      meta = { type: pkg.type, entry: pkg.entry || `${pkgName}.md`, version: pkg.version };
     }
-    const entryFile = meta.entry || `${pkgName}.md`;
-    const entryResp = await fetch(`${rawBaseUrl}/${pkg.path}/${entryFile}`);
-    if (!entryResp.ok) throw new Error(`Failed to download ${pkgName}: HTTP ${entryResp.status}`);
+
+    // Determine entry file and final URL
+    // If pkg.entry is a full path from the root of the repo, use it relative to rawBaseUrl
+    // Otherwise, use pkg.path + entryFile
+    let entryFile = meta.entry || pkg.entry || `${pkgName}.md`;
+    let entryUrl;
+
+    if (rawBaseUrl.endsWith('/')) {
+      entryUrl = entryFile.startsWith('/')
+        ? `${rawBaseUrl}${entryFile.slice(1)}`
+        : `${rawBaseUrl}${pkg.path}/${entryFile}`;
+    } else {
+      entryUrl = entryFile.startsWith('/')
+        ? `${rawBaseUrl}${entryFile}`
+        : `${rawBaseUrl}/${pkg.path}/${entryFile}`;
+    }
+
+    // Clean up potential double slashes (except the one after https:)
+    entryUrl = entryUrl.replace(/([^:]\/)\/+/g, '$1');
+
+    verbose(`Downloading community entry file: ${entryUrl}`);
+    const entryResp = await fetch(entryUrl);
+    if (!entryResp.ok) throw new Error(`Failed to download ${pkgName}: HTTP ${entryResp.status} at ${entryUrl}`);
     content = await entryResp.text();
   } else {
     // Official vault: use downloadFile helper
@@ -283,16 +307,16 @@ async function installSinglePackage(pkgSpec, isGlobal) {
       meta = JSON.parse(metaContent);
     } catch {
       verbose('meta.json unavailable, falling back to registry data');
-      meta = { type: pkg.type, entry: `${pkgName}.md`, version: pkg.version };
+      meta = { type: pkg.type, entry: pkg.entry || `${pkgName}.md`, version: pkg.version };
     }
-    const entryFile = meta.entry || `${pkgName}.md`;
+    const entryFile = meta.entry || pkg.entry || `${pkgName}.md`;
     verbose(`Downloading entry file: ${entryFile}`);
     content = await downloadFile(vault, `${pkg.path}/${entryFile}`);
   }
 
   // Route to correct directory by type
-  const entryFile = meta.entry || `${pkgName}.md`;
   const type = meta.type || pkg.type || 'command';
+  const entryFileName = meta.entry ? path.basename(meta.entry) : (pkg.entry ? path.basename(pkg.entry) : `${pkgName}.md`);
   let destPath;
 
   if (type === 'skill') {
