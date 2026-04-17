@@ -105,3 +105,116 @@ All 5 are meaningful functional assertions, not snapshots. PASS.
 **Sprint 3 complete.** All 5 phases (tracker extension, DFS resolver, install wiring, remove wiring, hook notice) reviewed and approved. 292/292 tests pass across 28 test files. No regressions detected in any prior phase. The two HIGH findings from the plan review (merge semantics, cascade flag) were addressed in PLAN.md revisions and correctly implemented in code.
 
 Sprint is ready for PR to main.
+
+---
+
+# Harvest Review — 2026-04-17
+
+**Reviewer:** plug-reviewer
+**Date:** 2026-04-17
+**Commit:** e49ba92 — `docs: harvest sprint/dep-resolution — dependency resolution feature + architecture`
+**Verdict:** CHANGES NEEDED
+
+> Reviewing the documentation harvest commit for durable content accuracy, completeness, and absence of transient content.
+
+---
+
+## Content Quality — Durable vs Transient
+
+All four new doc files and the README update focus on architecture, trade-offs, API contracts, and feature behavior. No task lists, phase tables, PR numbers, line-number references, or debug notes found. One minor transient reference: `features/dependency-resolution.md` opens with "Sprint 3 taught the install/remove lifecycle about dependencies" — this is acceptable as historical context, not actionable task tracking.
+
+No test-count references (e.g., "292 tests pass"), no "see PR #X" links. **PASS.**
+
+---
+
+## Factual Accuracy — HIGH: README and Feature Doc Misrepresent `--cascade`/`--force` as CLI Flags
+
+**Finding (HIGH):** The README (`plug/README.md`) and `docs/features/dependency-resolution.md` both document `--cascade`, `--force`, and (on remove) `--yes` as CLI flags:
+
+```
+plug remove code-review --cascade  # Also remove dependent packages (one level)
+plug remove code-review --force    # Remove only target; sever dependent edges
+plug remove code-review --yes      # Auto-prune orphans without prompting
+```
+
+**Actual code (`src/commands/remove.js`):**
+- The `remove` command registers only `-g, --global` as an option (line 10–11).
+- `--cascade` and `--force` are **not** CLI flags. They are interactive `select` prompt choices presented when `pkg.dependents.length > 0` (lines 45–51). Running `plug remove code-review --cascade` would cause Commander.js to error on the unknown option, or silently ignore it — either way, it would NOT trigger cascade behavior.
+- `--yes` is a **global** option (registered on the program in `index.js` line 18), so `plug remove code-review --yes` does set `ctx.yes = true`. This skips the orphan-prune confirmation prompt in `_pruneOrphans()`, but it does NOT bypass the dependent-check `select` prompt (cancel/cascade/force). The README implies `--yes` only auto-prunes orphans, which is correct for that specific behavior — but presenting it alongside `--cascade`/`--force` as parallel CLI flags is misleading since those two don't exist.
+
+**Required fix:** Remove `--cascade` and `--force` from the README and feature doc CLI examples. Document that cascade and force are interactive choices presented when dependents exist. `--yes` can stay documented for its actual behavior (auto-prune orphans).
+
+---
+
+## Factual Accuracy — API Signatures and Return Shapes
+
+Cross-checked every function signature and return shape in `docs/api.md` against source code:
+
+| Function | Doc matches code? |
+|---|---|
+| `resolve(pkgName, vaultHint?, options?)` | **Yes** — signature, return shape `{ toInstall, alreadySatisfied, cycles }`, and field descriptions all accurate. |
+| `addDependents(name, newDependents, global?)` | **Yes** — merge-via-Set semantics documented correctly. |
+| `getInstalledRecord(name, global?)` | **Yes** — returns `installed[name] ?? null`. |
+| `prunableOrphans(global?)` | **Yes** — filter logic matches code. |
+| `removeDependentEdge(fromName, toName, global?)` | **Yes** — removes `fromName` from `installed[toName].dependents`. |
+| `parseFrontmatter(content)` | **Yes** — regex, key-value parsing, empty-return semantics all match. |
+| `trackInstall` metadata fields | **Yes** — `installed_as`, `dependencies`, `dependents` with correct defaults. |
+
+**Minor note:** `api.md` includes the sentence "Checks `fm.hook || fm.hooks` to determine whether the installed skill requires a hook in `settings.json`" under the `parseFrontmatter` section. This logic is actually in `installSinglePackage` (install.js line 323), not in `parseFrontmatter` itself. The function only parses YAML and returns a record. This is slightly misleading but low-severity — a reader might think the function does the check internally.
+
+**PASS** (except the `--cascade`/`--force` issue above, which is HIGH).
+
+---
+
+## Architecture Doc Accuracy
+
+- **installed.json schema:** JSON example and field table match `trackInstall` code. Backward-compat normalisation (`rec.installed_as ?? 'explicit'`) documented and confirmed in `prunableOrphans` (line 93). **Accurate.**
+- **DFS resolver algorithm:** 4-step description matches `resolver.js` exactly. `buildPackageMap` community-wins behavior confirmed at line 40. Single `getInstalled` call confirmed at line 83–86 via `Promise.all`. **Accurate.**
+- **Install-plan TUI component:** Props, states, key bindings, and scope toggle all match `install-plan.jsx`. Footer `[i] Install [Esc] Cancel` matches lines 104–108. Tab toggle at line 25–27. **Accurate.**
+- **ctx.set timing claim:** "called inside doInstall() only — never during the resolver async phase" — confirmed at `discover.jsx` line 185 (inside `doInstall`), not during plan resolution. **Accurate.**
+- **Frontmatter parser:** Regex, indexOf-colon split, skip-on-miss behavior all match `frontmatter.js`. **Accurate.**
+
+**PASS.**
+
+---
+
+## Decisions Doc
+
+All five decisions are durable trade-off explanations with clear rationale:
+
+1. **DFS over topological sort** — accurate reasoning, no transient content.
+2. **addDependents merge semantics** — correctly explains why replace would corrupt multi-parent packages.
+3. **Hook notice is print-only** — accurate rationale about settings.json mutation risk.
+4. **JSON mode vs CLI mode split** — accurately describes the `hookRequired: true` conditional field.
+5. **Shallow cascade on remove** — accurately describes `_cascade` one-level behavior.
+6. **Community wins on name conflict** — matches `buildPackageMap` code.
+
+**PASS.**
+
+---
+
+## Completeness
+
+All 5 phases' durable knowledge is covered:
+
+| Phase | Coverage |
+|---|---|
+| P1: Tracker extension | `architecture.md` (schema), `api.md` (function signatures), `decisions.md` (merge semantics) |
+| P2: DFS resolver | `architecture.md` (algorithm), `api.md` (resolve signature), `decisions.md` (DFS choice, community-wins) |
+| P3: Install wiring + TUI | `architecture.md` (install-plan component, ctx.set timing), `features/dependency-resolution.md` (install flow), README (examples) |
+| P4: Remove wiring | `features/dependency-resolution.md` (remove flow, orphan pruning), `decisions.md` (shallow cascade) |
+| P5: Hook notice | `features/dependency-resolution.md` (hook notice), `api.md` (parseFrontmatter), `decisions.md` (print-only, JSON split), `architecture.md` (frontmatter parser) |
+
+**PASS** — no major gaps.
+
+---
+
+## Summary
+
+**Verdict: CHANGES NEEDED**
+
+One HIGH finding blocks approval:
+
+1. **HIGH — `--cascade`/`--force` documented as CLI flags but are interactive prompt choices.** The README and `features/dependency-resolution.md` both show `plug remove code-review --cascade` and `plug remove code-review --force` as valid CLI invocations. These flags do not exist on the remove command. They must be removed from CLI examples and the remove behavior must be documented as an interactive prompt (Cancel / Cascade / Force) that appears when dependents are detected.
+
+Everything else passes: API signatures are accurate, architecture descriptions match code, decisions are durable trade-off explanations with no transient content, and all five phases are covered. The `parseFrontmatter` api.md note about hook checking is slightly misplaced but low-severity.
