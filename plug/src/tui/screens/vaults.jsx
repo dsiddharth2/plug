@@ -9,13 +9,14 @@ import {
   runVaultAdd,
   runVaultRemove,
   runVaultSetDefault,
+  runVaultSetToken,
   runVaultSync,
 } from '../../commands/vault.js';
 import { fetchRegistry } from '../../utils/registry.js';
 import { getConfig } from '../../utils/config.js';
 import { ctx } from '../../utils/context.js';
 
-/** @typedef {'list'|'confirm-remove'|'adding'|'syncing'|'result'} VaultView */
+/** @typedef {'list'|'confirm-remove'|'adding'|'syncing'|'result'|'token-prompt'} VaultView */
 
 /**
  * Vaults screen — shows registered vaults and supports add/remove/sync/set-default.
@@ -30,6 +31,7 @@ export default function VaultsScreen({ onInputCapture }) {
   const [pendingRemove, setPendingRemove] = useState(null);
   const [addState, setAddState] = useState(null); // { step, name, url, branch, private }
   const [syncResults, setSyncResults] = useState([]);
+  const [tokenPromptVault, setTokenPromptVault] = useState(null);
   const { columns: terminalWidth } = useTerminalSize();
 
   // Notify parent when input is locked
@@ -122,6 +124,7 @@ export default function VaultsScreen({ onInputCapture }) {
       const config = await getConfig();
       const order = config.resolve_order || [];
       const perVault = [];
+      let authFailedVault = null;
 
       for (const name of order) {
         const v = config.vaults?.[name];
@@ -133,31 +136,64 @@ export default function VaultsScreen({ onInputCapture }) {
           perVault.push({ name, ok: true, packages: count });
         } catch (err) {
           perVault.push({ name, ok: false, error: err.message });
+          if (v.private && (err.code === 'AUTH_FAILED' || err.code === 'NOT_FOUND')) {
+            authFailedVault = name;
+          }
         }
 
         setSyncResults([...perVault]);
       }
 
       reload();
-      setOpResult({ type: 'sync', results: perVault });
-      setView('result');
+
+      if (authFailedVault) {
+        setOpResult({ type: 'sync', results: perVault });
+        setTokenPromptVault(authFailedVault);
+        setView('token-prompt');
+      } else {
+        setOpResult({ type: 'sync', results: perVault });
+        setView('result');
+      }
     } catch (err) {
       setOpResult({ type: 'sync', results: [], error: err.message });
       setView('result');
     }
   }
 
+  async function doSetToken(vaultName, token) {
+    setView('syncing');
+    setSyncResults([]);
+    try {
+      ctx.set({ yes: true, json: true });
+      await yieldToInk();
+      await captureOutput(() => runVaultSetToken(vaultName, token));
+      ctx.set({ yes: false, json: false });
+      reload();
+      setTokenPromptVault(null);
+      setOpResult({ type: 'set-token', name: vaultName, ok: true });
+      setView('result');
+    } catch (err) {
+      ctx.set({ yes: false, json: false });
+      setTokenPromptVault(null);
+      setOpResult({ type: 'set-token', name: vaultName, ok: false, error: err.message });
+      setView('result');
+    }
+  }
+
   // ── Add ────────────────────────────────────────────────────────────────────
 
-  async function doAdd(name, url, branch, isPrivate) {
+  async function doAdd(name, url, branch, isPrivate, token) {
     setOpResult(null);
-    setView('syncing'); // Reuse syncing spinner for connectivity check
+    setView('syncing');
     setSyncResults([]);
 
     try {
       ctx.set({ yes: true, json: true });
       await yieldToInk();
       await captureOutput(() => runVaultAdd(name, url, { private: isPrivate }));
+      if (token) {
+        await captureOutput(() => runVaultSetToken(name, token));
+      }
       ctx.set({ yes: false, json: false });
       reload();
       setOpResult({ type: 'add', name, ok: true });
@@ -178,7 +214,7 @@ export default function VaultsScreen({ onInputCapture }) {
       <AddVaultForm
         state={addState}
         onChange={setAddState}
-        onSubmit={(name, url, branch, isPrivate) => doAdd(name, url, branch, isPrivate)}
+        onSubmit={(name, url, branch, isPrivate, token) => doAdd(name, url, branch, isPrivate, token)}
         onCancel={() => { setAddState(null); setView('list'); }}
         terminalWidth={terminalWidth}
       />
@@ -191,6 +227,17 @@ export default function VaultsScreen({ onInputCapture }) {
         vault={pendingRemove}
         onConfirm={() => doRemove(pendingRemove)}
         onCancel={() => { setPendingRemove(null); setView('list'); }}
+      />
+    );
+  }
+
+  if (view === 'token-prompt' && tokenPromptVault) {
+    return (
+      <TokenPrompt
+        vaultName={tokenPromptVault}
+        syncResults={opResult?.results}
+        onSubmit={(token) => doSetToken(tokenPromptVault, token)}
+        onSkip={() => { setTokenPromptVault(null); setView('result'); }}
       />
     );
   }
@@ -417,7 +464,14 @@ function AddVaultForm({ state, onChange, onSubmit, onCancel, terminalWidth }) {
       setInputBuffer('');
     } else if (state.step === 'private') {
       const isPrivate = value.toLowerCase() === 'y';
-      onSubmit(state.name, state.url, state.branch, isPrivate);
+      if (isPrivate) {
+        onChange({ ...state, step: 'token', isPrivate: true });
+        setInputBuffer('');
+      } else {
+        onSubmit(state.name, state.url, state.branch, false, null);
+      }
+    } else if (state.step === 'token') {
+      onSubmit(state.name, state.url, state.branch, true, value || null);
     }
   }
 
@@ -426,6 +480,7 @@ function AddVaultForm({ state, onChange, onSubmit, onCancel, terminalWidth }) {
     url: 'GitHub URL (e.g. https://github.com/owner/repo):',
     branch: `Branch [default: main]:`,
     private: 'Private vault? [y/N]:',
+    token: 'GitHub PAT (personal access token):',
   };
 
   const prompt = prompts[state.step] || '';
@@ -450,17 +505,23 @@ function AddVaultForm({ state, onChange, onSubmit, onCancel, terminalWidth }) {
           <Text>{state.url}</Text>
         </Box>
       )}
-      {state.branch && state.step === 'private' && (
+      {state.branch && (state.step === 'private' || state.step === 'token') && (
         <Box>
           <Text dimColor>Branch : </Text>
           <Text>{state.branch}</Text>
+        </Box>
+      )}
+      {state.step === 'token' && (
+        <Box>
+          <Text dimColor>Private: </Text>
+          <Text>Yes</Text>
         </Box>
       )}
 
       {/* Current prompt */}
       <Box marginTop={1}>
         <Text>{prompt} </Text>
-        <Text color="cyan">{inputBuffer}</Text>
+        <Text color="cyan">{state.step === 'token' ? '*'.repeat(inputBuffer.length) : inputBuffer}</Text>
         <Text color="cyan">_</Text>
       </Box>
       <Box>
@@ -517,6 +578,17 @@ function OperationResult({ result, onDone }) {
         </>
       )}
 
+      {result.type === 'set-token' && (
+        <>
+          <Box marginBottom={1}><Text bold>Set Token</Text></Box>
+          {result.ok ? (
+            <Text color="green">✓ Token set for vault '{result.name}' — try syncing again</Text>
+          ) : (
+            <Text color="red">✗ {result.error}</Text>
+          )}
+        </>
+      )}
+
       {result.type === 'add' && (
         <>
           <Box marginBottom={1}><Text bold>Add Vault</Text></Box>
@@ -530,6 +602,75 @@ function OperationResult({ result, onDone }) {
 
       <Box marginTop={1}>
         <Text dimColor>Any key to continue</Text>
+      </Box>
+    </Box>
+  );
+}
+
+// ── TokenPrompt ──────────────────────────────────────────────────────────────
+
+function TokenPrompt({ vaultName, syncResults, onSubmit, onSkip }) {
+  const [inputBuffer, setInputBuffer] = useState('');
+
+  useInput((ch, key) => {
+    if (key.escape) {
+      onSkip();
+      return;
+    }
+
+    if (key.return) {
+      const value = inputBuffer.trim();
+      if (value) {
+        onSubmit(value);
+      } else {
+        onSkip();
+      }
+      return;
+    }
+
+    if (key.backspace || key.delete) {
+      setInputBuffer((prev) => prev.slice(0, -1));
+      return;
+    }
+
+    if (ch && ch.length === 1 && !key.ctrl && !key.meta) {
+      setInputBuffer((prev) => prev + ch);
+    }
+  });
+
+  usePaste(useCallback((text) => {
+    setInputBuffer((prev) => prev + text);
+  }, []));
+
+  return (
+    <Box flexDirection="column" paddingX={2} paddingY={1}>
+      {syncResults && (
+        <Box flexDirection="column" marginBottom={1}>
+          {syncResults.map((r) => (
+            <Box key={r.name}>
+              {r.ok ? (
+                <Text color="green">✓ {r.name}: {r.packages} packages</Text>
+              ) : (
+                <Text color="yellow">✗ {r.name}: {r.error}</Text>
+              )}
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      <Box marginBottom={1}>
+        <Text color="yellow">Vault '</Text>
+        <Text bold color="yellow">{vaultName}</Text>
+        <Text color="yellow">' requires authentication.</Text>
+      </Box>
+
+      <Box>
+        <Text>GitHub PAT: </Text>
+        <Text color="cyan">{'*'.repeat(inputBuffer.length)}</Text>
+        <Text color="cyan">_</Text>
+      </Box>
+      <Box marginTop={1}>
+        <Text dimColor>Enter to save · Esc to skip</Text>
       </Box>
     </Box>
   );

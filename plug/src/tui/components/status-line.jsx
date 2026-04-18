@@ -17,13 +17,16 @@ export default function StatusLine({ cursor, total, filtered, isFiltered, search
   const position = total > 0 ? `${cursor + 1}/${filtered}` : '0/0';
   const filterNote = isFiltered ? ` (filtered from ${total})` : '';
   const searchHint = searchFocused ? ' · type to filter · Esc to clear' : '';
-  const typeLabel = typeFilter !== 'all' ? ` · [${typeFilter}s]` : '';
+  const typeLabel = typeFilter !== 'all'
+    ? ` · type: ${typeFilter}s`
+    : ' · type: all';
 
   return (
     <Box paddingX={1}>
       <Text dimColor>
-        Discover plugins {position}{filterNote}{typeLabel}{searchHint}
-      </Text>
+        Discover plugins {position}{filterNote}</Text>
+      <Text color={typeFilter !== 'all' ? 'cyan' : 'gray'}>{typeLabel}</Text>
+      <Text dimColor>{searchHint}</Text>
     </Box>
   );
 }

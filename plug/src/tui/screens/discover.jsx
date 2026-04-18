@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import PackageList from '../components/package-list.jsx';
 import SearchBox from '../components/search-box.jsx';
@@ -45,9 +45,12 @@ export default function DiscoverScreen({ onInputCapture }) {
 
   // Filtered/searched package list
   const searchedPackages = useSearch(packages, searchQuery);
-  const filteredPackages = typeFilter === 'all'
-    ? searchedPackages
-    : searchedPackages.filter(p => p.type === typeFilter);
+  const filteredPackages = useMemo(
+    () => typeFilter === 'all'
+      ? searchedPackages
+      : searchedPackages.filter(p => p.type === typeFilter),
+    [searchedPackages, typeFilter]
+  );
 
   // Load installed package names
   useEffect(() => {

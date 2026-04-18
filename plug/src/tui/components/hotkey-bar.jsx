@@ -9,6 +9,7 @@ const HINTS = {
     ['Enter', 'detail'],
     ['Space', 'toggle'],
     ['/', 'search'],
+    ['t', 'filter type'],
     ['i', 'install'],
     ['Esc', 'exit'],
   ],
