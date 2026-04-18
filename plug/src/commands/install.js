@@ -6,6 +6,7 @@ import { findPackage, findAllPackages } from '../utils/registry.js';
 import { downloadFile } from '../utils/fetcher.js';
 import { trackInstall, isInstalled, getInstalled, addDependents } from '../utils/tracker.js';
 import { getClaudeSkillsDir, getClaudeAgentsDir, getClaudeDirForType, ensureDir } from '../utils/paths.js';
+import { invalidateCommunityIndexCache } from '../utils/community-index.js';
 import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
 import { pkgVersion } from '../utils/pkg-version.js';
@@ -33,6 +34,8 @@ export function registerInstall(program) {
 
 export async function runInstall(name, options = {}) {
   const isGlobal = options.global || false;
+
+  await invalidateCommunityIndexCache();
 
   // Parse vault prefix (vault/name)
   let vaultName = null;

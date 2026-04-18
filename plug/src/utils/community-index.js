@@ -36,6 +36,15 @@ export async function cacheCommunityIndex(data) {
 }
 
 /**
+ * Deletes the community index cache so the next fetch hits the network.
+ */
+export async function invalidateCommunityIndexCache() {
+  try {
+    await fs.unlink(getCacheFilePath());
+  } catch { /* ignore if missing */ }
+}
+
+/**
  * Returns cached community index data regardless of age (offline/stale fallback).
  */
 export async function getStaleCommunityIndexCache() {
