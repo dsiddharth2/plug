@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getConfig } from '../../utils/config.js';
 import { getCachedRegistry } from '../../utils/registry.js';
+import { getCachedCommunityIndex, getStaleCommunityIndexCache } from '../../utils/community-index.js';
 
 /**
  * Loads vault configuration and enriches each vault with metadata:
@@ -66,6 +67,39 @@ export function useVaults() {
             githubUrl: `https://github.com/${v.owner}/${v.repo}`,
             packageCount,
           });
+        }
+
+        const communityData = await getCachedCommunityIndex() || await getStaleCommunityIndexCache();
+        if (communityData) {
+          const pkgs = communityData.packages || [];
+          const communityVaultMap = new Map();
+          for (const pkg of pkgs) {
+            if (!pkg.vault || enriched.some(v => v.name === pkg.vault)) continue;
+            if (!communityVaultMap.has(pkg.vault)) {
+              communityVaultMap.set(pkg.vault, { count: 0, url: pkg.vaultUrl || '' });
+            }
+            communityVaultMap.get(pkg.vault).count++;
+          }
+          for (const [name, info] of communityVaultMap) {
+            let owner = '';
+            let repo = '';
+            try {
+              const parts = new URL(info.url).pathname.split('/').filter(Boolean);
+              owner = parts[0] || '';
+              repo = parts[1] || '';
+            } catch {}
+            enriched.push({
+              name,
+              owner,
+              repo,
+              branch: 'main',
+              private: false,
+              isDefault: false,
+              githubUrl: info.url,
+              packageCount: info.count,
+              isCommunity: true,
+            });
+          }
         }
 
         if (!cancelled) {

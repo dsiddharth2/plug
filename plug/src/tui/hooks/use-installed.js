@@ -45,12 +45,14 @@ export function useInstalled() {
         ]);
 
         const merged = [];
+        const localPaths = new Map();
 
         for (const [name, record] of Object.entries(localData.installed || {})) {
           merged.push({ name, ...record, scope: 'local', hasUpdate: false, latestVersion: null });
+          localPaths.set(name, record.path);
         }
         for (const [name, record] of Object.entries(globalData.installed || {})) {
-          // Deduplicate: if same name in both scopes, keep both (different scope label)
+          if (localPaths.has(name) && localPaths.get(name) === record.path) continue;
           merged.push({ name, ...record, scope: 'global', hasUpdate: false, latestVersion: null });
         }
 

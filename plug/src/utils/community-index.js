@@ -88,7 +88,7 @@ export function normalizeCommunityPackage(pkg) {
     name:         pkg.name,
     vault:        pkg.vault,
     vaultUrl:     pkg.vaultUrl,
-    version:      pkg.version ?? '?',
+    version:      pkg.version || null,
     type:         pkg.type,
     description:  pkg.description ?? '',
     tags:         pkg.tags ?? [],

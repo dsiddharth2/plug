@@ -55,7 +55,7 @@ export default function VaultsScreen({ onInputCapture }) {
 
     if (input === 'r' && vaults.length > 0) {
       const vault = vaults[cursor];
-      if (vault) {
+      if (vault && !vault.isCommunity) {
         setPendingRemove(vault);
         setView('confirm-remove');
       }
@@ -63,7 +63,7 @@ export default function VaultsScreen({ onInputCapture }) {
 
     if (input === 'd' && vaults.length > 0) {
       const vault = vaults[cursor];
-      if (vault && !vault.isDefault) {
+      if (vault && !vault.isDefault && !vault.isCommunity) {
         doSetDefault(vault.name);
       }
     }
@@ -277,10 +277,9 @@ function VaultList({ vaults, cursor, terminalWidth }) {
 function VaultItem({ vault, isCursor, terminalWidth }) {
   const star = vault.isDefault ? '★' : ' ';
   const cursorStr = isCursor ? '>' : ' ';
-  const privLabel = vault.private ? '[private]' : '[public] ';
+  const privLabel = vault.isCommunity ? '[community]' : vault.private ? '[private]' : '[public] ';
   const pkgStr = vault.packageCount !== null ? `${vault.packageCount} pkgs` : '? pkgs';
 
-  // Line 1: cursor star name · owner/repo · branch · visibility · pkg count
   const line1 = `${vault.name} · ${vault.owner}/${vault.repo} · ${vault.branch} · ${privLabel} · ${pkgStr}`;
   const prefixLen = 4; // "  > "
   const maxLine1 = terminalWidth - prefixLen - 2;
@@ -320,11 +319,11 @@ function VaultStatusLine({ cursor, total }) {
 // ── ConfirmRemoveVault ────────────────────────────────────────────────────────
 
 function ConfirmRemoveVault({ vault, onConfirm, onCancel }) {
-  const isOfficial = vault.name === 'official';
+  const isProtected = vault.name === 'official' || vault.isCommunity;
 
   useInput((input, key) => {
     if (key.escape || input === 'n' || input === 'N') onCancel();
-    if (!isOfficial && (input === 'y' || input === 'Y')) onConfirm();
+    if (!isProtected && (input === 'y' || input === 'Y')) onConfirm();
   });
 
   return (
@@ -333,10 +332,14 @@ function ConfirmRemoveVault({ vault, onConfirm, onCancel }) {
         <Text bold color="red">Remove Vault</Text>
       </Box>
 
-      {isOfficial ? (
+      {isProtected ? (
         <>
           <Box marginBottom={1}>
-            <Text color="yellow">Cannot remove the official vault — it is required for plug to function.</Text>
+            <Text color="yellow">
+              {vault.isCommunity
+                ? 'Cannot remove community vault sources — they are read-only.'
+                : 'Cannot remove the official vault — it is required for plug to function.'}
+            </Text>
           </Box>
           <Box>
             <Text dimColor>Press Esc or [n] to go back</Text>

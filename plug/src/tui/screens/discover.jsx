@@ -38,10 +38,16 @@ export default function DiscoverScreen({ onInputCapture }) {
   const [installedNames, setInstalledNames] = useState(new Set());
   const [depPlan, setDepPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('all');
   const installingRef = useRef(false);
 
+  const TYPE_FILTERS = ['all', 'skill', 'agent', 'command'];
+
   // Filtered/searched package list
-  const filteredPackages = useSearch(packages, searchQuery);
+  const searchedPackages = useSearch(packages, searchQuery);
+  const filteredPackages = typeFilter === 'all'
+    ? searchedPackages
+    : searchedPackages.filter(p => p.type === typeFilter);
 
   // Load installed package names
   useEffect(() => {
@@ -73,6 +79,14 @@ export default function DiscoverScreen({ onInputCapture }) {
 
     if (input === '/') {
       setSearchFocused(true);
+      return;
+    }
+
+    if (input === 't') {
+      setTypeFilter((prev) => {
+        const idx = TYPE_FILTERS.indexOf(prev);
+        return TYPE_FILTERS[(idx + 1) % TYPE_FILTERS.length];
+      });
       return;
     }
 
@@ -148,13 +162,7 @@ export default function DiscoverScreen({ onInputCapture }) {
       .then((plan) => {
         setPlanLoading(false);
         setDepPlan(plan);
-        // Single package (no extra deps) → skip plan screen, install immediately
-        if (plan.toInstall.length <= 1) {
-          setView('installing');
-          installingRef.current = true;
-          doInstall(queue).finally(() => { installingRef.current = false; });
-        }
-        // else: stay on plan view so user can confirm
+        // Always show plan screen so user can choose project vs global scope
       })
       .catch(() => {
         // Resolver failed — fall back to direct install
@@ -327,6 +335,7 @@ export default function DiscoverScreen({ onInputCapture }) {
         filtered={filteredPackages.length}
         isFiltered={isFiltered}
         searchFocused={searchFocused}
+        typeFilter={typeFilter}
       />
     </Box>
   );
