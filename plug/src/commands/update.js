@@ -1,12 +1,11 @@
 import chalk from 'chalk';
-import path from 'path';
 import fs from 'fs/promises';
 import { getInstalled, trackInstall } from '../utils/tracker.js';
 import { findPackage } from '../utils/registry.js';
-import { downloadFile } from '../utils/fetcher.js';
-import { getClaudeSkillsDir, getClaudeDirForType, ensureDir } from '../utils/paths.js';
 import { createSpinner } from '../utils/ui.js';
 import { ctx, verbose } from '../utils/context.js';
+import { installSinglePackage } from './install.js';
+import { cleanEmptyParents } from './remove.js';
 
 export function registerUpdate(program) {
   program
@@ -105,67 +104,42 @@ export async function runUpdate(name, options = {}) {
     return { name, status: 'up-to-date', version: installedVersion };
   }
 
-  // Re-download
+  // Use installSinglePackage to handle multi-file and community downloads
   const dlSpinner = createSpinner(`Updating ${name} to v${latestVersion}...`);
-  let meta;
-  let content;
+  let installInfo;
   try {
-    try {
-      verbose(`Fetching meta.json for ${name}`);
-      const metaContent = await downloadFile(vault, `${pkg.path}/meta.json`);
-      meta = JSON.parse(metaContent);
-    } catch {
-      verbose('meta.json unavailable, falling back to registry data');
-      meta = {
-        type: pkg.type || record.type,
-        entry: `${name}.md`,
-        version: pkg.version,
-      };
-    }
-
-    const entryFile = meta.entry || `${name}.md`;
-    verbose(`Downloading ${entryFile}`);
-    content = await downloadFile(vault, `${pkg.path}/${entryFile}`);
+    installInfo = await installSinglePackage(result, isGlobal);
     dlSpinner.stop();
   } catch (err) {
     dlSpinner.stop();
     throw err;
   }
 
-  const entryFile = meta.entry || `${name}.md`;
-  const type = meta.type || pkg.type || record.type || 'command';
-  let destPath;
-  if (type === 'skill') {
-    const skillSubdir = path.join(getClaudeSkillsDir(isGlobal), name);
-    await ensureDir(skillSubdir);
-    destPath = path.join(skillSubdir, 'SKILL.md');
-  } else {
-    const destDir = getClaudeDirForType(type, isGlobal);
-    await ensureDir(destDir);
-    destPath = path.join(destDir, entryFile);
-  }
-
-  verbose(`Writing to ${destPath}`);
-  try {
-    await fs.writeFile(destPath, content, 'utf8');
-  } catch (err) {
-    if (err.code === 'EACCES' || err.code === 'EPERM') {
-      throw Object.assign(
-        new Error(`Cannot write to ${destPath}. Check permissions.`),
-        { code: err.code },
-      );
+  // Clean up old files that are not in the new file list
+  const oldFiles = record.files || [record.path];
+  const newFiles = new Set(installInfo.files);
+  for (const oldPath of oldFiles) {
+    if (!newFiles.has(oldPath)) {
+      verbose(`Cleaning up old file: ${oldPath}`);
+      try {
+        await fs.unlink(oldPath);
+        await cleanEmptyParents(oldPath);
+      } catch { /* ignore */ }
     }
-    throw err;
   }
 
   await trackInstall(
     name,
     {
-      type,
+      type: installInfo.type,
       vault: vault.name,
       version: latestVersion,
-      path: destPath,
+      path: installInfo.destPath,
+      files: installInfo.files,
       installedAt: record.installedAt,
+      installed_as: record.installed_as || 'explicit',
+      dependencies: record.dependencies || [],
+      dependents: record.dependents || [],
     },
     isGlobal,
   );

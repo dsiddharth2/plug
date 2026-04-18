@@ -316,6 +316,60 @@ describe('plug install', () => {
 
   // ── Phase 2: per-skill subdir layout ─────────────────────────────────────────
 
+  it('correctly handles nested files from community vault with rawBaseUrl and strips pkg.path prefix', async () => {
+    // This simulates community-index returning absolute file paths starting with pkg.path
+    const communityPkg = {
+      name: 'google-workspace-cli',
+      type: 'skill',
+      version: '1.0.0',
+      path: 'engineering-team/google-workspace-cli',
+      description: 'GWS CLI',
+      rawBaseUrl: 'https://raw.githubusercontent.com/dsiddharth2/claude-skills/refs/heads/main/',
+      files: [
+        'engineering-team/google-workspace-cli/SKILL.md',
+        'engineering-team/google-workspace-cli/assets/logo.png',
+        'engineering-team/google-workspace-cli/scripts/setup.sh'
+      ],
+      entry: 'engineering-team/google-workspace-cli/SKILL.md'
+    };
+
+    findAllPackages.mockResolvedValue([{ pkg: communityPkg, vault: sampleVault }]);
+    
+    // Mock fetch for the 3 files plus meta.json
+    global.fetch = vi.fn((url) => {
+      if (url.endsWith('meta.json')) return Promise.resolve({ ok: false, status: 404 });
+      if (url.endsWith('SKILL.md')) return Promise.resolve({ ok: true, status: 200, text: async () => '# skill content' });
+      if (url.endsWith('logo.png')) return Promise.resolve({ ok: true, status: 200, text: async () => 'binary-logo-data' });
+      if (url.endsWith('setup.sh')) return Promise.resolve({ ok: true, status: 200, text: async () => 'echo setup' });
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+
+    await runInstall('google-workspace-cli', {});
+
+    // Ensure the 4 fetch calls had the right URLs (1 for meta.json, 3 for files)
+    expect(global.fetch).toHaveBeenCalledTimes(4);
+    const expectedBase = 'https://raw.githubusercontent.com/dsiddharth2/claude-skills/refs/heads/main/engineering-team/google-workspace-cli';
+    expect(global.fetch.mock.calls[1][0]).toBe(expectedBase + '/SKILL.md');
+    expect(global.fetch.mock.calls[2][0]).toBe(expectedBase + '/assets/logo.png');
+    expect(global.fetch.mock.calls[3][0]).toBe(expectedBase + '/scripts/setup.sh');
+
+    // Ensure files were written correctly with prefix stripped
+    const skillDest = path.join(localSkillsDir, 'google-workspace-cli', 'SKILL.md');
+    const logoDest = path.join(localSkillsDir, 'google-workspace-cli', 'assets', 'logo.png');
+    const scriptDest = path.join(localSkillsDir, 'google-workspace-cli', 'scripts', 'setup.sh');
+
+    const skillContent = await fs.readFile(skillDest, 'utf8');
+    expect(skillContent).toBe('# skill content');
+
+    const logoContent = await fs.readFile(logoDest, 'utf8');
+    expect(logoContent).toBe('binary-logo-data');
+
+    const scriptContent = await fs.readFile(scriptDest, 'utf8');
+    expect(scriptContent).toBe('echo setup');
+
+    delete global.fetch; // cleanup
+  });
+
   it('fresh install of 3 skills produces 3 separate subdirs each with SKILL.md', async () => {
     const skills = [
       { name: 'api-patterns',   content: '# api-patterns'   },

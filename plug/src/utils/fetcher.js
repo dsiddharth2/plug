@@ -1,5 +1,5 @@
 import { getAuthHeaders } from './auth.js';
-import { GITHUB_RAW_BASE, DEFAULT_BRANCH } from '../constants.js';
+import { GITHUB_RAW_BASE, DEFAULT_BRANCH, toRefBranch } from '../constants.js';
 
 /**
  * Downloads a file from a vault's GitHub repo.
@@ -8,7 +8,7 @@ import { GITHUB_RAW_BASE, DEFAULT_BRANCH } from '../constants.js';
  * @returns {string} File contents as a string
  */
 export async function downloadFile(vault, filePath) {
-  const branch = vault.branch || DEFAULT_BRANCH;
+  const branch = toRefBranch(vault.branch || DEFAULT_BRANCH);
   const url = `${GITHUB_RAW_BASE}/${vault.owner}/${vault.repo}/${branch}/${filePath}`;
   const headers = await getAuthHeaders(vault.name);
 

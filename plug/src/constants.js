@@ -22,6 +22,10 @@ export const GITHUB_API_BASE = 'https://api.github.com';
 export const REGISTRY_FILE = 'registry.json';
 export const DEFAULT_BRANCH = 'main';
 
+export function toRefBranch(branch) {
+  return branch.startsWith('refs/') ? branch : `refs/heads/${branch}`;
+}
+
 export const OFFICIAL_VAULT = {
   name: OFFICIAL_VAULT_NAME,
   owner: OFFICIAL_VAULT_OWNER,
@@ -31,4 +35,4 @@ export const OFFICIAL_VAULT = {
 };
 
 export const COMMUNITY_INDEX_URL =
-  'https://raw.githubusercontent.com/dsiddharth2/plugvault/main/community-index.json'
+  'https://raw.githubusercontent.com/dsiddharth2/plugvault/refs/heads/main/community-index.json';

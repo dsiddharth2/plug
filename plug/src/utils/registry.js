@@ -8,6 +8,7 @@ import {
   REGISTRY_FILE,
   DEFAULT_BRANCH,
   CACHE_TTL_MS,
+  toRefBranch,
 } from '../constants.js';
 
 import { fetchCommunityIndex, normalizeCommunityPackage } from './community-index.js';
@@ -71,7 +72,7 @@ export async function fetchRegistry(vault) {
   const cached = await getCachedRegistry(vault.name);
   if (cached) return cached;
 
-  const branch = vault.branch || DEFAULT_BRANCH;
+  const branch = toRefBranch(vault.branch || DEFAULT_BRANCH);
   const url = `${GITHUB_RAW_BASE}/${vault.owner}/${vault.repo}/${branch}/${REGISTRY_FILE}`;
   const headers = await getAuthHeaders(vault.name);
 

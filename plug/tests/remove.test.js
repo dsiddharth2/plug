@@ -398,4 +398,48 @@ describe('plug remove', () => {
     const data = JSON.parse(await fs.readFile(localInstalledFile, 'utf8'));
     expect(data.installed['dep-x']).toBeUndefined();
   });
+
+  it('removes all files in the files array and cleans up empty parent directories', async () => {
+    // We need to ensure the path includes one of the stop-directories like 'skills'
+    const skillsBase = path.join(tmpDir, '.claude', 'skills');
+    await fs.mkdir(skillsBase, { recursive: true });
+
+    const skillDir = path.join(skillsBase, 'multi-file-skill');
+    const skillFile = path.join(skillDir, 'SKILL.md');
+    const helperFile = path.join(skillDir, 'utils', 'helper.js');
+
+    await fs.mkdir(path.dirname(skillFile), { recursive: true });
+    await fs.mkdir(path.dirname(helperFile), { recursive: true });
+    await fs.writeFile(skillFile, '# SKILL', 'utf8');
+    await fs.writeFile(helperFile, 'console.log("helper")', 'utf8');
+
+    await fs.writeFile(
+      localInstalledFile,
+      JSON.stringify({
+        installed: {
+          'multi-file-skill': {
+            type: 'skill',
+            vault: 'official',
+            version: '1.0.0',
+            path: skillFile,
+            files: [skillFile, helperFile],
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    await runRemove('multi-file-skill', {});
+
+    // Both files should be deleted
+    await expect(fs.access(skillFile)).rejects.toThrow();
+    await expect(fs.access(helperFile)).rejects.toThrow();
+
+    // The subdirectories should be cleaned up because they are empty
+    await expect(fs.access(path.dirname(helperFile))).rejects.toThrow();
+    await expect(fs.access(skillDir)).rejects.toThrow();
+
+    // Core 'skills' directory should still exist
+    await expect(fs.access(path.join(tmpDir, '.claude', 'skills'))).resolves.toBeUndefined();
+  });
 });
