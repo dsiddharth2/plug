@@ -301,18 +301,26 @@ export async function installSinglePackage(pkgSpec, isGlobal) {
   let primaryContent = '';
   const downloadedFiles = [];
 
+  const prefix = pkg.path ? (pkg.path.endsWith('/') ? pkg.path : pkg.path + '/') : '';
+  const localEntryFile = (prefix && entryFile.startsWith(prefix)) ? entryFile.slice(prefix.length) : entryFile;
+
   for (const relativePath of filesToDownload) {
+    let localPath = relativePath;
+    if (prefix && relativePath.startsWith(prefix)) {
+      localPath = relativePath.slice(prefix.length);
+    }
+
     let content;
     if (rawBaseUrl) {
       let url;
       if (rawBaseUrl.endsWith('/')) {
         url = relativePath.startsWith('/')
           ? `${rawBaseUrl}${relativePath.slice(1)}`
-          : `${rawBaseUrl}${pkg.path}/${relativePath}`;
+          : (relativePath.startsWith(prefix) ? `${rawBaseUrl}${relativePath}` : `${rawBaseUrl}${pkg.path}/${relativePath}`);
       } else {
         url = relativePath.startsWith('/')
           ? `${rawBaseUrl}${relativePath}`
-          : `${rawBaseUrl}/${pkg.path}/${relativePath}`;
+          : (relativePath.startsWith(prefix) ? `${rawBaseUrl}/${relativePath}` : `${rawBaseUrl}/${pkg.path}/${relativePath}`);
       }
       url = url.replace(/([^:]\/)\/+/g, '$1');
       verbose(`Downloading ${relativePath} from ${url}`);
@@ -321,21 +329,21 @@ export async function installSinglePackage(pkgSpec, isGlobal) {
       content = await resp.text();
     } else {
       verbose(`Downloading ${relativePath} from vault ${vault.name}`);
-      content = await downloadFile(vault, `${pkg.path}/${relativePath}`);
+      content = await downloadFile(vault, `${pkg.path}/${localPath}`);
     }
 
     // Determine local destination
     // For skills, we flatten the structure into the skill directory unless we want to preserve subdirs
     // For now, let's preserve subdirs relative to the package root
-    const destPath = (type === 'skill' && relativePath === entryFile)
+    const destPath = (type === 'skill' && localPath === localEntryFile)
       ? path.join(rootDestDir, 'SKILL.md')
-      : path.join(rootDestDir, relativePath);
+      : path.join(rootDestDir, localPath);
 
     await ensureDir(path.dirname(destPath));
     await fs.writeFile(destPath, content, 'utf8');
     downloadedFiles.push(destPath);
 
-    if (relativePath === entryFile) {
+    if (localPath === localEntryFile) {
       primaryDestPath = destPath;
       primaryContent = content;
     }

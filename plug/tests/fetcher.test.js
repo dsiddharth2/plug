@@ -54,7 +54,7 @@ describe('fetcher utils', () => {
     });
     await downloadFile(sampleVault, 'registry/file.md');
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://raw.githubusercontent.com/dsiddharth2/plugvault/main/registry/file.md',
+      'https://raw.githubusercontent.com/dsiddharth2/plugvault/refs/heads/main/registry/file.md',
       expect.any(Object)
     );
   });
