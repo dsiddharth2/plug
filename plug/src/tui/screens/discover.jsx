@@ -328,7 +328,6 @@ export default function DiscoverScreen({ onInputCapture }) {
         toggled={toggled}
         onToggle={handleToggle}
         installedNames={installedNames}
-        showDeps={true}
         emptyMessage={emptyMessage}
       />
 

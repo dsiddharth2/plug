@@ -75,33 +75,6 @@ export default function PackageDetail({ pkg, onBack, onInstall, installedNames =
         </Box>
       </Box>
 
-      {pkg.dependencies?.length > 0 && (
-        <Box flexDirection="column" marginBottom={1}>
-          <Text bold>Dependencies:</Text>
-          {pkg.dependencies.map(dep => (
-            <Box key={dep.name} paddingLeft={2}>
-              <Text dimColor>{dep.required ? '•' : '○'} </Text>
-              <Text>{dep.name}</Text>
-              <Text dimColor> ({dep.vault})</Text>
-              {installedNames.has(dep.name)
-                ? <Text color="green">  ✓ installed</Text>
-                : <Text dimColor>  not installed</Text>}
-            </Box>
-          ))}
-          {pkg.dependencies.filter(d => d.required && !installedNames.has(d.name)).length > 0 && (
-            <Box marginTop={1}>
-              <Text dimColor>Installing this will also install: </Text>
-              <Text>
-                {pkg.dependencies
-                  .filter(d => d.required && !installedNames.has(d.name))
-                  .map(d => d.name)
-                  .join(', ')}
-              </Text>
-            </Box>
-          )}
-        </Box>
-      )}
-
       {/* Usage hint */}
       {isInstalled ? (
         <Box marginBottom={1}>

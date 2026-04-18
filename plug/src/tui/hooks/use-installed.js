@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import os from 'os';
+import path from 'path';
 import { getInstalled } from '../../utils/tracker.js';
 import { findPackage } from '../../utils/registry.js';
 import { compareSemver } from '../../commands/update.js';
+
+const globalClaudeDir = path.resolve(os.homedir(), '.claude');
 
 /**
  * Loads installed packages from both local and global scopes.
@@ -45,15 +49,22 @@ export function useInstalled() {
         ]);
 
         const merged = [];
-        const localPaths = new Map();
+        const seen = new Map();
+
+        function inferScope(record) {
+          if (!record.path) return 'local';
+          return path.resolve(record.path).startsWith(globalClaudeDir) ? 'global' : 'local';
+        }
 
         for (const [name, record] of Object.entries(localData.installed || {})) {
-          merged.push({ name, ...record, scope: 'local', hasUpdate: false, latestVersion: null });
-          localPaths.set(name, record.path);
+          const scope = inferScope(record);
+          merged.push({ name, ...record, scope, hasUpdate: false, latestVersion: null });
+          seen.set(name, record.path);
         }
         for (const [name, record] of Object.entries(globalData.installed || {})) {
-          if (localPaths.has(name) && localPaths.get(name) === record.path) continue;
-          merged.push({ name, ...record, scope: 'global', hasUpdate: false, latestVersion: null });
+          if (seen.has(name) && seen.get(name) === record.path) continue;
+          const scope = inferScope(record);
+          merged.push({ name, ...record, scope, hasUpdate: false, latestVersion: null });
         }
 
         // Sort by name then scope
