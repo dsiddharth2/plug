@@ -163,6 +163,7 @@ export async function runInstall(name, options = {}) {
   const pkgSpecMap = new Map();
   pkgSpecMap.set(pkgName, { pkg, vault, rawBaseUrl: pkg.rawBaseUrl ?? null });
 
+  const unresolvedDeps = [];
   for (const depName of installOrder) {
     if (depName === pkgName || pkgSpecMap.has(depName)) continue;
     try {
@@ -170,10 +171,17 @@ export async function runInstall(name, options = {}) {
       if (depMatches.length > 0) {
         const { pkg: depPkg, vault: depVault } = depMatches[0];
         pkgSpecMap.set(depName, { pkg: depPkg, vault: depVault, rawBaseUrl: depPkg.rawBaseUrl ?? null });
+      } else {
+        unresolvedDeps.push(depName);
+        verbose(`Dependency '${depName}' not found in any vault — skipping`);
       }
     } catch {
-      // Skip unresolvable deps silently
+      unresolvedDeps.push(depName);
+      verbose(`Dependency '${depName}' lookup failed — skipping`);
     }
+  }
+  if (unresolvedDeps.length > 0 && !ctx.json) {
+    console.log(chalk.yellow(`⚠ Could not resolve ${unresolvedDeps.length} dependenc${unresolvedDeps.length === 1 ? 'y' : 'ies'}: ${unresolvedDeps.join(', ')}`));
   }
 
   // Root's direct dependency names (for tracking)

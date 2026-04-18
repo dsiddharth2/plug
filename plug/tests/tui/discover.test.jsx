@@ -244,9 +244,10 @@ describe('DiscoverScreen', () => {
     stdin.write('i');
     await new Promise((r) => setTimeout(r, 200));
 
-    // Should go directly to installing view (not plan view)
+    // Should now show plan view with scope selector even for single package
     const frame = lastFrame();
-    expect(frame).not.toContain('Will install');
+    expect(frame).toContain('Will install');
+    expect(frame).toContain('Project');
   });
 
   it('Tab key toggles scope between Project and Global in plan view', async () => {

@@ -183,15 +183,15 @@ describe('community-index utils', () => {
       expect(result.path).toBe(base.directory);
     });
 
-    it('version defaults to "?" when null', () => {
+    it('version defaults to null when null', () => {
       const result = normalizeCommunityPackage({ ...base, version: null });
-      expect(result.version).toBe('?');
+      expect(result.version).toBeNull();
     });
 
-    it('version defaults to "?" when undefined', () => {
+    it('version defaults to null when undefined', () => {
       const { version: _v, ...noVersion } = base;
       const result = normalizeCommunityPackage(noVersion);
-      expect(result.version).toBe('?');
+      expect(result.version).toBeNull();
     });
 
     it('tags defaults to [] when null', () => {

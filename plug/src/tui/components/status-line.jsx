@@ -13,15 +13,16 @@ import { Box, Text } from 'ink';
  *   searchFocused: boolean,
  * }} props
  */
-export default function StatusLine({ cursor, total, filtered, isFiltered, searchFocused }) {
+export default function StatusLine({ cursor, total, filtered, isFiltered, searchFocused, typeFilter = 'all' }) {
   const position = total > 0 ? `${cursor + 1}/${filtered}` : '0/0';
   const filterNote = isFiltered ? ` (filtered from ${total})` : '';
   const searchHint = searchFocused ? ' · type to filter · Esc to clear' : '';
+  const typeLabel = typeFilter !== 'all' ? ` · [${typeFilter}s]` : '';
 
   return (
     <Box paddingX={1}>
       <Text dimColor>
-        Discover plugins {position}{filterNote}{searchHint}
+        Discover plugins {position}{filterNote}{typeLabel}{searchHint}
       </Text>
     </Box>
   );

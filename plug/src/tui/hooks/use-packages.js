@@ -101,7 +101,7 @@ function addVaultPackages(list, vaultName, registry) {
     list.push({
       name,
       vault: vaultName,
-      version: pkg.version || '?',
+      version: pkg.version || null,
       type: pkg.type || 'skill',
       description: pkg.description || '',
       tags: pkg.tags || [],

@@ -20,6 +20,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import path from 'path';
+import os from 'os';
 import fs from 'fs/promises';
 import { installSinglePackage } from '../src/commands/install.js';
 import { fetchCommunityIndex, normalizeCommunityPackage } from '../src/utils/community-index.js';
@@ -28,7 +29,7 @@ import { ctx } from '../src/utils/context.js';
 const LOCAL_INDEX = process.env.LOCAL_INDEX || '';
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR
-  || path.resolve(import.meta.dirname, '..', 'test-output', 'community-install');
+  || path.join(os.tmpdir(), 'plug-test-output', 'community-install');
 const LIMIT = process.env.LIMIT ? parseInt(process.env.LIMIT, 10) : Infinity;
 const FILTER = process.env.FILTER || '';
 

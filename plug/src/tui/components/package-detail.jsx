@@ -47,10 +47,12 @@ export default function PackageDetail({ pkg, onBack, onInstall, installedNames =
 
       {/* Metadata */}
       <Box flexDirection="column" marginBottom={1}>
-        <Box>
-          <Text dimColor>Version : </Text>
-          <Text>{pkg.version || '?'}</Text>
-        </Box>
+        {pkg.version && (
+          <Box>
+            <Text dimColor>Version : </Text>
+            <Text>{pkg.version}</Text>
+          </Box>
+        )}
         <Box>
           <Text dimColor>Vault   : </Text>
           <Text>{pkg.vault}</Text>
