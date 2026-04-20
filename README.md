@@ -20,6 +20,8 @@ Managing Claude Code extensions manually gets messy fast. Plug solves this:
 
 ## Quick Start
 
+![Plug TUI](docs/images/tui-screenshot.png)
+
 ### 1. Install
 
 ```bash
